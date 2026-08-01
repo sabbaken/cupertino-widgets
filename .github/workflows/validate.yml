@@ -1,0 +1,26 @@
+name: Validate
+
+# HACS runs these checks itself before it will list a repository, and the default-list
+# reviewers look for a green run here. The nightly schedule is the point of it: the checks
+# read GitHub metadata — description, topics, issues, releases — that can go stale without
+# a commit to notice it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: plugin
