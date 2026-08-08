@@ -131,5 +131,5 @@ lovelace:
     # empty directory and serving 404 for a bundle that is sitting right there on the
     # host. `ha:up` force-recreates, which re-resolves the mount. Same failure the README
     # warns about for `rm -rf dist`, reached by a different route.
-    - url: /local/cupertino-widgets/cupertino-widgets.js?v=17
+    - url: /local/cupertino-widgets/cupertino-widgets.js?v=19
       type: module

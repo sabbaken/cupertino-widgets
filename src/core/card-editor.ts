@@ -169,19 +169,34 @@ export abstract class CupertinoCardEditor<C extends LovelaceCardConfig = Lovelac
   protected abstract fields(): readonly HaFormSchema[]
 
   /**
-   * Every row of the form: the card's own, and then the ones every card in the library
-   * shares.
+   * The rows a card wants *below* the shared ones, which in practice means a folded
+   * section.
+   *
+   * `fields()` is where a row goes; this exists for the one thing that has to stay at the
+   * bottom however the dialog grows. An **Advanced** disclosure triangle is the floor of a
+   * settings panel: anything drawn under it reads as an option that escaped the fold
+   * rather than as a sibling of the rows above, and **Scale** is an ordinary row in that
+   * reading, so it belongs over the triangle rather than under it.
+   */
+  protected trailingFields(): readonly HaFormSchema[] {
+    return []
+  }
+
+  /**
+   * Every row of the form: the card's own, then the ones every card in the library shares,
+   * then whatever the card keeps folded away at the bottom.
    *
    * Composed here rather than left to each editor to remember, for the same reason `scale`
    * lives on `CupertinoCardConfig` rather than on one card's config: it is not a question
    * one widget gets to answer differently from another, and an option that has to be
    * re-added by hand to each new editor is an option the third card will ship without.
    *
-   * The shared rows go last. A card's own subject (which calendars, which clock) is why
-   * somebody opened the dialog; how big to draw it is a decision taken after that.
+   * The shared rows go after the card's own. A card's subject (which calendars, which
+   * clock) is why somebody opened the dialog; how big to draw it is a decision taken after
+   * that, and anything in `trailingFields` is a decision most people never take at all.
    */
   private schema(): readonly HaFormSchema[] {
-    return [...this.fields(), SCALE_ROW]
+    return [...this.fields(), SCALE_ROW, ...this.trailingFields()]
   }
 
   /**

@@ -31,8 +31,9 @@ const TODO_LISTS_KEY = 'panel.todo'
 
 /**
  * Four rows of the card's own, and it took a detour to get here. (A fifth, **Scale**,
- * arrives from `CupertinoCardEditor`, since it belongs to every card in the library, not to
- * this one, and two more are folded away in **Advanced**: see `advancedSection`.)
+ * arrives from `CupertinoCardEditor` under them, since it belongs to every card in the
+ * library rather than to this one, and two more are folded away in **Advanced** under
+ * that: see `advancedSection`.)
  *
  * There was a `size` row as well: two tiles, Small and Medium, each with a line of copy.
  * It looked like the more helpful editor and was the less helpful one. The sections layout
@@ -120,11 +121,12 @@ const SPAN_ROW: HaFormSchema = {
 /**
  * The two rows above, folded away behind a disclosure triangle.
  *
- * A section rather than two more rows in the list, because of who is looking: the four
- * rows above it are the questions every user of this card has to answer, and these two are
- * a question almost nobody has. Left in the open they would read as a fifth and sixth
- * thing to decide before the card works, which is what an Advanced section exists to say
- * they are not. `flatten` keeps the config flat behind it; see `HaFormExpandable`.
+ * A section rather than two more rows in the list, because of who is looking: every row
+ * above it is a question a user of this card has to answer, and these two are a question
+ * almost nobody has. Left in the open they would read as two more things to decide before
+ * the card works, which is what an Advanced section exists to say they are not. It is the
+ * last thing in the dialog for the same reason, **Scale** included; see `trailingFields`.
+ * `flatten` keeps the config flat behind it; see `HaFormExpandable`.
  *
  * It arrives **open** for a card that is actually pointed somewhere, which is the one thing
  * a folded section gets wrong: a user coming back to a card pinned to tomorrow would
@@ -170,10 +172,17 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
    * anywhere else in the form, quietly emptying the picker it was greying out.
    */
   protected override fields(): readonly HaFormSchema[] {
-    const rows = remindersEnabled(this._config?.show_reminders)
+    return remindersEnabled(this._config?.show_reminders)
       ? [CALENDARS_ROW, REMINDERS_ROW, TODO_LISTS_ROW, CLOCK_ROW]
       : [CALENDARS_ROW, REMINDERS_ROW, CLOCK_ROW]
-    return [...rows, advancedSection(this._config)]
+  }
+
+  /**
+   * Under **Scale**, at the very bottom of the dialog, which is what `trailingFields` is
+   * for rather than a fifth entry in `fields()`: see `CupertinoCardEditor`.
+   */
+  protected override trailingFields(): readonly HaFormSchema[] {
+    return [advancedSection(this._config)]
   }
 
   /**
