@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { itemTarget, type CalendarItem } from './model'
+import { isOver, itemTarget, type CalendarItem } from './model'
 
 const anEventFrom = (entityId: string): CalendarItem => ({
   id: 'e',
@@ -19,6 +19,76 @@ const aReminderFrom = (entityId: string): CalendarItem => ({
   title: 'Pick up dry cleaning',
   start: new Date('2026-07-24T14:30:00+02:00'),
   color: 'purple',
+})
+
+describe('when the clock takes a row down', () => {
+  const WARSAW = 'Europe/Warsaw'
+
+  /** A meeting on Friday, 24 July 2026, given as wall-clock hours in Warsaw. */
+  const meeting = (from: string, to: string): CalendarItem => ({
+    ...anEventFrom('calendar.work'),
+    start: new Date(`2026-07-24T${from}:00+02:00`),
+    end: new Date(`2026-07-24T${to}:00+02:00`),
+  })
+
+  const at = (item: CalendarItem, wallClock: string, timeZone = WARSAW): boolean =>
+    isOver(item, new Date(`2026-07-24T${wallClock}:00+02:00`), timeZone)
+
+  it('leaves a meeting up until it is half over', () => {
+    const twoToThree = meeting('14:00', '15:00')
+    expect(at(twoToThree, '14:00')).toBe(false)
+    expect(at(twoToThree, '14:29')).toBe(false)
+    expect(at(twoToThree, '14:30')).toBe(true)
+    expect(at(twoToThree, '14:31')).toBe(true)
+  })
+
+  it('does not take one down before it has even started', () => {
+    expect(at(meeting('18:00', '19:00'), '12:00')).toBe(false)
+  })
+
+  it('never retires something with no end time at all', () => {
+    const reminder = aReminderFrom('todo.chores')
+    expect(isOver(reminder, new Date('2026-07-25T09:00:00+02:00'), WARSAW)).toBe(false)
+  })
+
+  it('holds an all-day entry to its exclusive end rather than to midday', () => {
+    const trip: CalendarItem = {
+      ...anEventFrom('calendar.personal'),
+      title: 'Poznań trip',
+      allDay: true,
+      start: new Date('2026-07-24T00:00:00+02:00'),
+      end: new Date('2026-07-25T00:00:00+02:00'),
+    }
+    expect(at(trip, '12:00')).toBe(false)
+    expect(at(trip, '23:59')).toBe(false)
+    expect(isOver(trip, new Date('2026-07-25T00:00:00+02:00'), WARSAW)).toBe(true)
+  })
+
+  it('holds a span across midnight to its end, half of it being the middle of the night', () => {
+    // 22:00 to 06:00, so the midpoint is 02:00, a time this shift is very much still on.
+    const nightShift: CalendarItem = {
+      ...anEventFrom('calendar.work'),
+      title: 'Night shift',
+      start: new Date('2026-07-24T22:00:00+02:00'),
+      end: new Date('2026-07-25T06:00:00+02:00'),
+    }
+    expect(isOver(nightShift, new Date('2026-07-25T02:00:00+02:00'), WARSAW)).toBe(false)
+    expect(isOver(nightShift, new Date('2026-07-25T05:59:00+02:00'), WARSAW)).toBe(false)
+    expect(isOver(nightShift, new Date('2026-07-25T06:00:00+02:00'), WARSAW)).toBe(true)
+  })
+
+  it('asks the display timezone which of the two a span is', () => {
+    // 23:30 to 00:30 in Warsaw crosses midnight and keeps its end; the same instants are
+    // 21:30 to 22:30 in UTC, one evening, so there the midpoint at 22:00 UTC retires it.
+    const late: CalendarItem = {
+      ...anEventFrom('calendar.work'),
+      start: new Date('2026-07-24T23:30:00+02:00'),
+      end: new Date('2026-07-25T00:30:00+02:00'),
+    }
+    const tenPast = new Date('2026-07-25T00:10:00+02:00')
+    expect(isOver(late, tenPast, WARSAW)).toBe(false)
+    expect(isOver(late, tenPast, 'UTC')).toBe(true)
+  })
 })
 
 describe('the page behind a row', () => {

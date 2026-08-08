@@ -201,8 +201,16 @@ and prints like one.
 ### Order
 
 1. Today and forwards only: a fortnight is more than enough.
-2. Anything that has finished is dropped; anything running now stays. Only a real end
-   time can retire a row, so an overdue reminder stays up for the rest of its day.
+2. Anything the clock has overtaken is dropped, and a meeting is overtaken **halfway
+   through it**: at ten past two you are already sitting in the two-to-three, so the row
+   worth having is the one after it. Holding it to 3PM is more literal, and it is what this
+   card did first; what it cost was the second half of every appointment, spent describing
+   where the reader already is. Two shapes keep their full end, half of them being no sort
+   of deadline: an **all-day entry**, whose half is midday and which is about the day rather
+   than a moment in it, and a **span across midnight** (an overnight shift, a multi-day trip
+   with times on it), which the flow is still filing under today for being under way, and
+   which the reader is on rather than done with. Only a real end time retires a row at all,
+   so an overdue reminder stays up for the rest of its day.
 3. Inside a day: all-day first, then by start time. Reminders and events share one
    stream: `Pick up dry cleaning 10:30` comes before `Language class 12:00`, and it is
    not shunted into a section of its own. A reminder due on a date with no time is one of
@@ -254,11 +262,13 @@ free day and a finished one:
 | nothing on it, and nothing was        | `No Events Today`      |
 | had something, all of it already over | `No More Events Today` |
 
-"Already over" is §2's own rule read backwards: a row is retired only by a real end
-time, so the same events that drop out of the flow during the day are what turn the line
-into `No More Events Today` once the last of them ends. An entry with no end time never
-retires and so never produces it, and the end is exclusive: an all-day entry for
-yesterday ends at today's midnight and is still yesterday's.
+"Already over" is §2's own rule read backwards: the same events that drop out of the flow
+during the day are what turn the line into `No More Events Today`, so it arrives when the
+last of them is half over rather than when it ends. `No More Events Today` while that
+meeting still has twenty minutes to run is the rule saying what it means: there is nothing
+after this one. An entry with no end time never retires and so never produces the line, and
+the end that dates a retired row is the exclusive one: an all-day entry for yesterday ends at
+today's midnight and is still yesterday's.
 
 ## 5. The height budget
 

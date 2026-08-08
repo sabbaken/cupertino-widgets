@@ -13,6 +13,8 @@
  * why the shape below fits both without a second interface.
  */
 
+import { dayNumber } from './datetime'
+
 export type CalendarItemKind = 'event' | 'reminder'
 
 export interface CalendarItem {
@@ -44,15 +46,62 @@ export interface CalendarItem {
 }
 
 /**
- * Whether an item has been overtaken by the clock.
+ * The calendar day an item's last moment falls on, or nothing if it has no end.
+ *
+ * The end is exclusive, here as it is on the wire: Home Assistant's all-day events end at
+ * the following midnight, so the last moment of a span is the tick before its end rather
+ * than the end itself. `start` floors it for the zero-length case, where a
+ * stroke-of-midnight event would otherwise be dated to the day before.
+ *
+ * Two rules turn on this one question. Which day an item that is over ended on, which is
+ * `flow.ts`'s `No More Events Today`; and whether a span is one sitting or a stretch of the
+ * calendar, which is `retiresAt` below.
+ */
+export const lastDay = (item: CalendarItem, timeZone?: string): number | undefined => {
+  if (!item.end) return undefined
+  const last = Math.max(item.start.getTime(), item.end.getTime() - 1)
+  return dayNumber(new Date(last), timeZone)
+}
+
+/**
+ * The moment the clock takes a row down, or nothing if the clock never can.
+ *
+ * **A meeting retires halfway through, not at its end.** At ten past two you are sitting
+ * in the two-to-three meeting, and what the widget owes you from that minute is the thing
+ * after it: holding the row to 3PM spends the second half of every appointment telling the
+ * reader where they already are. This is the phone's reading of a running event, and the
+ * one place in the card where something still happening is treated as spent. The
+ * alternative, the exclusive end, is what this card did first; it is more literal, and what
+ * it cost was the next row, which is the row worth having.
+ *
+ * **Two shapes keep their full end**, for the same reason twice: half of them is not a
+ * moment anything stops mattering. An all-day entry's half is midday, and an all-day thing
+ * is about the day rather than about a moment in it. A span across midnight (an overnight
+ * shift, a multi-day trip with times on it) has its half somewhere in the middle of itself,
+ * while `buildFlow` is still carrying it into today for being under way, so retiring it
+ * there would hide a trip the reader is on. The half therefore prices one sitting, and the
+ * end prices a stretch of the calendar.
+ */
+const retiresAt = (item: CalendarItem, timeZone?: string): number | undefined => {
+  if (!item.end) return undefined
+  const start = item.start.getTime()
+  const end = item.end.getTime()
+  if (item.allDay || lastDay(item, timeZone) !== dayNumber(item.start, timeZone)) return end
+  return start + (end - start) / 2
+}
+
+/**
+ * Whether an item has been overtaken by the clock: see `retiresAt` for when that is.
  *
  * Only a real end time can retire an item. Something without one (a reminder, an
  * all-day entry) stays up for the rest of its day and is dropped by the day filter,
  * not by this: an overdue reminder is still a thing you have to do, and hiding it at
  * the stroke of its due time would be the wrong help.
  */
-export const isOver = (item: CalendarItem, now: Date): boolean =>
-  item.end !== undefined && item.end.getTime() <= now.getTime()
+export const isOver = (item: CalendarItem, now: Date, timeZone?: string): boolean => {
+  const retires = retiresAt(item, timeZone)
+  return retires !== undefined && retires <= now.getTime()
+}
 
 /**
  * Whether a location line is even on the table for this item.

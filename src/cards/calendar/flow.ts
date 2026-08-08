@@ -6,8 +6,9 @@
  * The rules, in order:
  *
  *  1. today and forwards only, out to `LOOKAHEAD_DAYS`;
- *  2. anything already finished is dropped, anything running now stays, though a
- *     finished item is still counted, so a day that is over can say so;
+ *  2. anything the clock has overtaken is dropped, which is halfway through a meeting
+ *     rather than at the end of it (`retiresAt` in `model.ts` has the argument), though a
+ *     dropped item is still counted, so a day that is over can say so;
  *  3. inside a day: all-day first, then by start time, reminders and events share
  *     one stream rather than being separated;
  *  4. days with nothing in them vanish completely, headings and all, so an empty
@@ -17,7 +18,7 @@
 
 import { dayNumber } from './datetime'
 import { sectionHeading, type FormatContext } from './format'
-import { isOver, type CalendarItem } from './model'
+import { isOver, lastDay, type CalendarItem } from './model'
 
 export type FlowNode =
   { type: 'header'; key: string; text: string } | { type: 'item'; key: string; item: CalendarItem }
@@ -49,6 +50,10 @@ export interface Flow {
    * the difference between `No Events Today` and `No More Events Today`: the first one,
    * read at six in the evening of a day with three meetings behind it, says the card
    * lost them rather than that the day is done.
+   *
+   * "Finished" is `isOver`'s reading of it, so the last meeting of a day turns this on
+   * halfway through itself. `No More Events Today` while that meeting still has twenty
+   * minutes in it is the rule doing what it says: there is nothing after this one.
    */
   todayDone: boolean
 }
@@ -56,21 +61,6 @@ export interface Flow {
 interface Placed {
   item: CalendarItem
   day: number
-}
-
-/**
- * Whether an item that is already over was one of *today's*.
- *
- * The end is exclusive, here as it is on the wire: Home Assistant's all-day events end
- * at the following midnight, so reading the end inclusively would count yesterday's trip
- * among today's events and put `No More Events Today` on a genuinely free day. `start`
- * floors it for the zero-length case, where a stroke-of-midnight event would otherwise
- * be dated to the day before.
- */
-const finishedOn = (item: CalendarItem, day: number, timeZone?: string): boolean => {
-  if (!item.end) return false
-  const last = Math.max(item.start.getTime(), item.end.getTime() - 1)
-  return dayNumber(new Date(last), timeZone) === day
 }
 
 export function buildFlow(items: readonly CalendarItem[], options: FlowOptions): Flow {
@@ -83,8 +73,10 @@ export function buildFlow(items: readonly CalendarItem[], options: FlowOptions):
   // finished one.
   let anyFinishedToday = false
   for (const item of items) {
-    if (isOver(item, now)) {
-      anyFinishedToday ||= finishedOn(item, today, ctx.timeZone)
+    if (isOver(item, now, ctx.timeZone)) {
+      // The day it ends on, read off an exclusive end, which is what keeps yesterday's
+      // all-day trip from counting as one of today's. The essay is on `lastDay`.
+      anyFinishedToday ||= lastDay(item, ctx.timeZone) === today
       continue
     }
 

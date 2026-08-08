@@ -47,6 +47,29 @@ describe('selection', () => {
     expect(labels([overdue])).toEqual(['Pick up dry cleaning'])
   })
 
+  it('drops a meeting the reader is already halfway through', () => {
+    const items = [
+      // Half over at 11:45, so at midday it is behind us; the second is half over at 12:15.
+      event('Half over', '2026-07-24T11:00:00+02:00', '2026-07-24T12:30:00+02:00'),
+      event('Just started', '2026-07-24T11:30:00+02:00', '2026-07-24T13:00:00+02:00'),
+    ]
+    expect(labels(items)).toEqual(['Just started'])
+  })
+
+  it('holds an all-day entry past midday, its half being no sort of deadline', () => {
+    const trip: CalendarItem = {
+      id: 'a',
+      entityId: 'calendar.work',
+      kind: 'event',
+      title: 'Poznań trip',
+      allDay: true,
+      start: new Date('2026-07-24T00:00:00+02:00'),
+      end: new Date('2026-07-25T00:00:00+02:00'),
+      color: 'blue',
+    }
+    expect(labels([trip])).toEqual(['Poznań trip'])
+  })
+
   it('leaves yesterday behind', () => {
     const items = [event('Yesterday', '2026-07-23T15:00:00+02:00', '2026-07-23T16:00:00+02:00')]
     expect(labels(items)).toEqual([])
@@ -55,6 +78,12 @@ describe('selection', () => {
   it('carries a multi-day event that is already under way into today', () => {
     const items = [event('Trip', '2026-07-22T08:00:00+02:00', '2026-07-27T20:00:00+02:00')]
     // Grouped under today, so it is not filed under a day that has already gone.
+    expect(labels(items)).toEqual(['Trip'])
+  })
+
+  it('carries one that is past its own midpoint, since a trip is not a meeting', () => {
+    // Half over on the 23rd at 14:00, and still four days from finishing.
+    const items = [event('Trip', '2026-07-20T08:00:00+02:00', '2026-07-26T20:00:00+02:00')]
     expect(labels(items)).toEqual(['Trip'])
   })
 
@@ -188,6 +217,17 @@ describe('a today that is over', () => {
   it('holds in the small size, which never sees tomorrow at all', () => {
     const flow = buildFlow([over, tomorrow], { now: NOW, ctx, todayOnly: true })
     expect(flow).toMatchObject({ todayEmpty: true, todayDone: true })
+  })
+
+  it('is claimed by a last meeting that is only half over', () => {
+    // Nothing follows the 11:00, and from 11:45 the widget has nothing left to offer: the
+    // line says as much while that meeting still has half an hour in it, which is the
+    // selection rule read out loud rather than a second rule about the line.
+    const halfOver = event('Standup', '2026-07-24T11:00:00+02:00', '2026-07-24T12:30:00+02:00')
+    expect(buildFlow([halfOver], { now: NOW, ctx })).toMatchObject({
+      todayEmpty: true,
+      todayDone: true,
+    })
   })
 
   it('counts something that started yesterday and ended this morning', () => {
