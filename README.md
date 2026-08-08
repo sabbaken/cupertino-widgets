@@ -8,8 +8,10 @@ taken from the box you drag them into rather than from a size setting.
 **[Install](#install)** ·
 **[The calendar](#the-calendar)** ·
 **[The batteries](#the-batteries)** ·
+**[The reminders](#the-reminders)** ·
 **[Card rules](docs/calendar-widget-rules.md)** ·
-**[Ring rules](docs/battery-widget-rules.md)**
+**[Ring rules](docs/battery-widget-rules.md)** ·
+**[List rules](docs/reminders-widget-rules.md)**
 
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sabbaken)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sabbaken)
@@ -22,9 +24,10 @@ taken from the box you drag them into rather than from a size setting.
 The demo runs every size live, with sample data and the clock under your control, and hands
 you the config to paste when you like what you see: nothing to install to look.
 
-> **Status: early.** Two cards. The calendar draws your real calendars and to-do lists and
+> **Status: early.** Three cards. The calendar draws your real calendars and to-do lists and
 > lays itself out exactly like the phone's. The battery card draws any battery sensors you
-> point it at.
+> point it at. The reminders card draws one to-do list, and ticking something off it on the
+> dashboard is the one thing in the library that writes back to Home Assistant.
 >
 > It needs a current Home Assistant, **2026.7 or newer**: the cards track the latest
 > frontend APIs rather than carrying compatibility shims.
@@ -129,6 +132,57 @@ the reading, so a colour changing underneath it would be a second, coarser versi
 number. [`docs/battery-widget-rules.md`](docs/battery-widget-rules.md) has the whole argument,
 along with every rule above.
 
+## The reminders
+
+One to-do list: how many things are still on it, what the list is called, and as many of them
+as the card has room for. **Tap one to tick it off.** The row stays where it is for five
+seconds so a tap you did not mean can be taken back, and then it goes. Tap the count, the name
+or the badge and the to-do panel opens on that list.
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/images/reminders-medium.png" width="420"
+           alt="A medium reminders card: a purple home badge over the count 7 and the name Home in a column on the left, and five unticked items on the right beginning with Water the plants">
+      <br />
+      <sub><b>Medium.</b> The badge, the count and the name are a column beside the rows, which
+      leaves the list the full height of the card. Five of the seven fit; the count says so.</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/images/reminders-small.png" width="222"
+           alt="A small square reminders card: Home in purple on the left of one line with 7 on the right, then four unticked items, three of them truncated">
+      <br />
+      <sub><b>Small.</b> No room for a badge, so the name and the count share the heading's one
+      line. Titles that run out of room are truncated rather than wrapped.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <img src="docs/images/reminders-large.png" width="420"
+           alt="A large reminders card: the count 7 over the name Home at the top left, a purple home badge at the top right, a hairline, then all seven items across the full width">
+      <br />
+      <sub><b>Large.</b> Drag it taller and the heading moves above the rows, which is what buys
+      them the whole width: the title that was truncated in the wide card fits here.</sub>
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/images/reminders-dark.png" width="420"
+           alt="A medium reminders card on a dark theme: a purple people badge, the count 4 and the name Shared list wrapped over two lines, and four items beginning with Milk, bread and coffee">
+      <br />
+      <sub><b>Dark theme.</b> It follows the one you picked in Home Assistant. A list shorter
+      than the box simply ends; nothing is padded out to fill it.</sub>
+    </td>
+  </tr>
+</table>
+
+Ticking something off calls `todo.update_item` at once rather than waiting out the five
+seconds, so every other Home Assistant client sees it immediately and closing the dashboard
+cannot lose it. The five seconds are the card holding the row on screen against a list that has
+already moved on, which is also what makes the tick appear under your finger instead of a round
+trip later. A list that does not accept updates is drawn exactly the same and simply does not
+respond: no tap target, no tab stop, and nothing announcing a checkbox that would fail.
+[`docs/reminders-widget-rules.md`](docs/reminders-widget-rules.md) has every rule above,
+including why there is no repeat glyph: Home Assistant has no recurrence to draw one from.
+
 ## Install
 
 Through [HACS](https://hacs.xyz/), which is where a dashboard card belongs; it registers the
@@ -145,8 +199,9 @@ Then add a card. The next section shows how.
 
 ## Adding a card
 
-Both cards are in the dashboard's card picker (**Cupertino Calendar** and **Cupertino
-Batteries**), and both have a visual editor, so there is no YAML to write unless you want to.
+All three cards are in the dashboard's card picker (**Cupertino Calendar**, **Cupertino
+Batteries** and **Cupertino Reminders**), and each has a visual editor, so there is no YAML to
+write unless you want to.
 
 ### The calendar
 
@@ -252,19 +307,63 @@ is for the rest, and it is the separate binary sensor the companion app and frie
 A device whose sensor cannot be read is still drawn: an empty ring, a dimmed icon and a dash
 instead of a percentage. That is the point of putting the card up.
 
+### The reminders
+
+One picker, then **Scale**. Choose the to-do list and there is nothing else to answer: the name
+on the card, the number over it, the glyph on the badge and how many rows fit are all worked
+out from the list and the box.
+
+```yaml
+type: custom:cupertino-widgets-reminders
+entity: todo.shopping
+scale: 100 # optional; 80–130, percent
+```
+
+| Option   | Default | Meaning                                                    |
+| -------- | ------- | ---------------------------------------------------------- |
+| `entity` | none    | The `todo` list this card is about. One list per card.     |
+| `scale`  | `100`   | Percent. Draws the whole widget larger or smaller. 80–130. |
+
+**One list per card, and that is the design.** The whole heading is a list's name over a count
+of that list's items, so a card over two lists would have to be told what to call itself and
+which of them a tap should open. Two lists are two cards. If what you want is several lists
+poured together by day, that is the calendar card, which draws to-do items with a due date
+alongside your events.
+
+**Nothing is filtered out.** Every item still to do is a row, dated or not, in the order the
+list is kept in. The card does not sort, because your list is already sorted the way you left
+it and the panel a tap opens will show it that way too.
+
+**No `+N more`.** The count over the name has already said how many things there are, so a card
+drawing three rows under a `9` has reported the six it could not fit; saying it twice would cost
+a row that could have held one of them.
+
+**A list that cannot be written to is read-only here too.** Its rows look the same, and none of
+them is a tap target, a tab stop or a checkbox to a screen reader. Home Assistant's own to-do
+card disables its checkboxes on the same flag rather than removing them, and for the same
+reason: a row that lost its circle would read as a different kind of row, where a control that
+answers a tap with a red toast is simply a control that does not work.
+
 ## How big it is
 
 **There is no size option.** Resize a card the normal way (the **Layout** tab in the dashboard
-editor) and it works out which of the two widget shapes fits the box you gave it. The calendar
-shows today in the square and today plus what follows it in the wider 2:1; the battery card
-puts two rings across the square and four across the 2:1. The line is at 340px of card, roughly
-9 of the 12 columns in a section of the usual width, and it moves with `scale`, because larger
-type needs more room before two columns of it stop truncating every title.
+editor) and it works out which widget shape fits the box you gave it. The calendar shows today
+in the square and today plus what follows it in the wider 2:1; the battery card puts two rings
+across the square and four across the 2:1; the reminders card puts its heading on one line in
+the square and beside the rows in the 2:1. The line is at 340px of card, roughly 9 of the 12
+columns in a section of the usual width, and it moves with `scale`, because larger type needs
+more room before two columns of it stop truncating every title.
 
-| footprint       | comes out at  | shape            |
-| --------------- | ------------- | ---------------- |
-| **6 × 4** rows  | ~246 × 248 px | the small square |
-| **12 × 4** rows | ~500 × 248 px | the medium 2:1   |
+| footprint       | comes out at  | shape                           |
+| --------------- | ------------- | ------------------------------- |
+| **6 × 4** rows  | ~246 × 248 px | the small square                |
+| **12 × 4** rows | ~500 × 248 px | the medium 2:1                  |
+| **12 × 6** rows | ~500 × 376 px | the large panel, reminders only |
+
+The third is the reminders card's alone, and it is the one shape that comes from the height
+rather than the width: past 340px of it the heading moves above the rows and they get the whole
+width. The other two cards are the same card in a taller box, with more of the week or bigger
+rings.
 
 Everything between and around them works too; that is the whole point of measuring the box
 instead of reading a preset. A card dragged taller fills the extra height rather than leaving it
@@ -298,7 +397,7 @@ belongs to every card rather than to this one.
 | Calendar                        | events, live                |
 | Battery levels                  | live                        |
 | Reminders, in the calendar card | to-do items with a due date |
-| A to-do list of its own         | planned                     |
+| A to-do list of its own         | live, and tickable          |
 
 ## Development
 

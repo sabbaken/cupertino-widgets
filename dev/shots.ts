@@ -23,7 +23,12 @@
  *    gallery while nothing fed them; they come off `todo` entities now, so a shot led by
  *    them would be advertising a feature the card has. It still applies to anything else
  *    the fixtures can draw and the card cannot yet fill.
- *  - **Only the two footprints**, 6×4 and 12×4. See `Shot.columns` below.
+ *  - **Only footprints a card was designed at.** This used to read "only 6×4 and 12×4",
+ *    which was the same rule while those were the only two shapes anybody had drawn: the
+ *    square and the 2:1. The reminders card has a third, and it is not a wider card but a
+ *    taller one, so the rule is now stated as what it always meant. What it still rules out
+ *    is the in-between footprints, which lay out perfectly well and are the flexibility
+ *    rather than the design. See `Shot.columns` and `Shot.rows` below.
  */
 
 import '../src/index'
@@ -32,12 +37,13 @@ import './shots.css'
 
 import type { LitElement } from 'lit'
 
-import { BATTERY_CARD_TAG, CALENDAR_CARD_TAG } from '../src/index'
+import { BATTERY_CARD_TAG, CALENDAR_CARD_TAG, REMINDERS_CARD_TAG } from '../src/index'
 import { columnsToPx, layoutFromBox, rowsToPx } from '../src/core/size'
 import type { LovelaceCard, LovelaceCardConfig } from '../src/core/types/ha'
 import { deviceSet } from './battery-devices'
 import { defineHaStubs } from './ha-stubs'
 import { createMockHass } from './mock-hass'
+import { reminderList } from './reminders-lists'
 
 defineHaStubs()
 
@@ -72,17 +78,22 @@ interface Shot {
    */
   config: Partial<LovelaceCardConfig>
   /**
-   * The footprint, in the Layout tab's own units, and **only ever 6×4 or 12×4 here.**
+   * The footprint, in the Layout tab's own units, and **only ever a shape a card was
+   * designed at.**
    *
-   * Those are the two Apple shapes (the square and the 2:1), and they are what a
-   * screenshot is for. Everything between them lays out perfectly well, which is the
-   * point of measuring the box rather than reading a preset, but the in-between
-   * footprints are the flexibility rather than the design: shipping one in the README
-   * would present a shape nobody was aiming for as the shape to aim for. Show the two,
-   * and let the Layout tab be discovered as the thing that also permits the rest.
+   * 6×4 is the square and 12×4 is the 2:1, which are the two the whole library is laid out
+   * for. Everything between them lays out perfectly well, which is the point of measuring
+   * the box rather than reading a preset, but the in-between footprints are the flexibility
+   * rather than the design: shipping one in the README would present a shape nobody was
+   * aiming for as the shape to aim for.
+   *
+   * 12×6 is the third, and it belongs to the reminders card alone: it is where that card
+   * puts its heading over the rows instead of beside them, which is a drawing nobody sees
+   * at either of the other two and is not a variation on them.
+   * `docs/reminders-widget-rules.md` §7 has why the line falls there.
    */
   columns: 6 | 12
-  rows: 4
+  rows: 4 | 6
   theme: 'light' | 'dark'
 }
 
@@ -92,6 +103,10 @@ const calendarShot = (scenario: string): Partial<LovelaceCardConfig> => ({
 
 const batteryShot = (set: string): Partial<LovelaceCardConfig> => ({
   entities: [...deviceSet(set)],
+})
+
+const remindersShot = (list: string): Partial<LovelaceCardConfig> => ({
+  entity: reminderList(list),
 })
 
 const SHOTS: readonly Shot[] = [
@@ -163,6 +178,42 @@ const SHOTS: readonly Shot[] = [
     caption: 'medium, dark: four devices, one of them not reporting',
     tag: BATTERY_CARD_TAG,
     config: batteryShot('awkward'),
+    columns: 12,
+    rows: 4,
+    theme: 'dark',
+  },
+  {
+    name: 'reminders-medium',
+    caption: 'medium: the heading beside the rows, five of seven',
+    tag: REMINDERS_CARD_TAG,
+    config: remindersShot('home'),
+    columns: 12,
+    rows: 4,
+    theme: 'light',
+  },
+  {
+    name: 'reminders-small',
+    caption: 'small: name and count on one line, four of seven',
+    tag: REMINDERS_CARD_TAG,
+    config: remindersShot('home'),
+    columns: 6,
+    rows: 4,
+    theme: 'light',
+  },
+  {
+    name: 'reminders-large',
+    caption: 'large: the heading over the rows, and the whole list',
+    tag: REMINDERS_CARD_TAG,
+    config: remindersShot('home'),
+    columns: 12,
+    rows: 6,
+    theme: 'light',
+  },
+  {
+    name: 'reminders-dark',
+    caption: 'medium, dark: a shorter list, so the box outlasts it',
+    tag: REMINDERS_CARD_TAG,
+    config: remindersShot('shared'),
     columns: 12,
     rows: 4,
     theme: 'dark',

@@ -16,8 +16,9 @@
 import { mdiBatteryHigh, mdiCalendarMonth, mdiFormatListChecks } from '@mdi/js'
 
 import { DEMO_SCENARIOS, DEFAULT_DEMO_SCENARIO } from '../../src/cards/calendar/demo-data'
-import { BATTERY_CARD_TAG, CALENDAR_CARD_TAG } from '../../src/index'
+import { BATTERY_CARD_TAG, CALENDAR_CARD_TAG, REMINDERS_CARD_TAG } from '../../src/index'
 import { DEFAULT_DEVICE_SET, DEVICE_SETS, deviceSet } from '../battery-devices'
+import { DEFAULT_REMINDER_LIST, REMINDER_LISTS, reminderList } from '../reminders-lists'
 import {
   DEFAULT_SCALE,
   MAX_SCALE,
@@ -254,7 +255,65 @@ const battery: Widget = {
   },
 }
 
-export const WIDGETS: readonly Widget[] = [calendar, battery]
+/**
+ * Readable names for the lists, and each one names what the card does with it rather than
+ * what is on it: which of them a visitor wants is a question about the card.
+ */
+const LIST_LABELS: Record<string, string> = {
+  home: 'A full list',
+  errands: 'Three items',
+  packing: 'Nothing left to do',
+  shared: 'Read-only: no ticks',
+  none: 'Nothing configured',
+}
+
+const reminders: Widget = {
+  id: 'reminders',
+  name: 'Reminders',
+  tagline: 'One to-do list, and how much of it is still ahead of you.',
+  icon: mdiFormatListChecks,
+  tag: REMINDERS_CARD_TAG,
+
+  props: [
+    {
+      kind: 'select',
+      name: 'list',
+      label: 'List',
+      description: 'Mock to-do lists, one per thing the card does with one.',
+      group: 'card',
+      options: Object.keys(REMINDER_LISTS).map(value => ({
+        value,
+        label: LIST_LABELS[value] ?? titleCase(value),
+      })),
+      initial: DEFAULT_REMINDER_LIST,
+    },
+  ],
+
+  /**
+   * In the **Card** group and printed verbatim, like the battery card's devices and for the
+   * same reason: this card has no fixtures either. It reads `hass.states` and one
+   * `todo/item/subscribe` subscription exactly as it would on a dashboard, and all the
+   * harness supplies is which list to point it at, so the YAML above the control is the
+   * config that produced what is on screen. The entity id is the mock installation's, which
+   * is the one thing a visitor has to substitute.
+   *
+   * Ticking a row off in the preview really does call `todo.update_item` against that mock
+   * list, and `mock-hass.ts` pushes the list back the way Home Assistant does. It is the one
+   * control on this page whose effect outlives the render it caused.
+   */
+  toConfig(args) {
+    const entityId = reminderList(readString(args, 'list', DEFAULT_REMINDER_LIST))
+    // Omitted rather than written empty: a card with no list is a card that has not been
+    // told, and `entity: ''` is not a config anybody would paste.
+    return entityId ? { entity: entityId } : {}
+  },
+
+  toFixture() {
+    return {}
+  },
+}
+
+export const WIDGETS: readonly Widget[] = [calendar, battery, reminders]
 
 export const widgetById = (id: string): Widget | undefined => WIDGETS.find(w => w.id === id)
 
@@ -263,11 +322,14 @@ export const widgetById = (id: string): Widget | undefined => WIDGETS.find(w => 
  *
  * Listed but not linked; a route to a page saying "not built yet" is a worse answer
  * than a greyed row that already says it. They are here because the first question a
- * visitor asks a two-widget library is whether there will be more.
+ * visitor asks a small library is whether there will be more.
+ *
+ * Empty now that the reminders card is the To-do lists row that used to be in it. Kept
+ * rather than deleted along with the entry: the sidebar renders an empty list as nothing at
+ * all, so this costs a visitor no pixels, and the next planned widget is one line here
+ * instead of a template to write again.
  */
-export const PLANNED: readonly { name: string; icon: string }[] = [
-  { name: 'To-do lists', icon: mdiFormatListChecks },
-]
+export const PLANNED: readonly { name: string; icon: string }[] = []
 
 // ---- Options every card has --------------------------------------------------
 

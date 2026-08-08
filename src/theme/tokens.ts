@@ -69,6 +69,12 @@ export const tokens = css`
     --cw-track: rgba(0, 0, 0, 0.1);
 
     --cw-accent: var(--primary-color, #007aff);
+    /* Ink on one of the colours below, rather than on a surface: the glyph in the reminders
+       card's badge, and the tick inside a completed row. It has no dark twin and does not
+       want one, for the same reason the accent above has none: the thing behind it is a
+       colour this library chose, so it is the same colour in either theme and the theme has
+       nothing to say about what reads on it. */
+    --cw-on-accent: #fff;
     --cw-red: #ff3b30;
     --cw-orange: #ff9500;
     --cw-yellow: #ffcc00;

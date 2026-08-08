@@ -420,6 +420,159 @@ One store-level detail, because it looks like the calendar's exclusive-end trap:
 shifts it back on the way out: `if (due := item.due) and not isinstance(due, datetime):
 due -= timedelta(days=1)`. The date on the wire is the day the item is due, inclusive.
 
+### Writing: `todo.update_item` (the first thing in this library to write anything)
+
+Everything above is the read path. The service that ticks an item off is the other half, and
+it was read out of the same image: core 2026.7.4, frontend 20260624.6.
+
+```python
+# components/todo/__init__.py:147-171
+component.async_register_entity_service(
+    "update_item",
+    cv.make_entity_service_schema({
+        vol.Required("item"): vol.All(cv.string, vol.Length(min=1)),
+        vol.Optional("rename"): vol.All(cv.string, vol.Length(min=1)),
+        vol.Optional("status"): vol.In({
+            TodoItemStatus.NEEDS_ACTION,
+            TodoItemStatus.COMPLETED,
+        }),
+        # ... due_date / due_datetime / description
+    }),
+    _async_update_todo_item,
+    required_features=[TodoListEntityFeature.UPDATE_TODO_ITEM],
+)
+```
+
+**`item` is a uid OR a summary.** Both are matched, in one pass, first hit wins:
+
+```python
+# components/todo/__init__.py:447-454
+def _find_by_uid_or_summary(value: str, items: list[TodoItem] | None) -> TodoItem | None:
+    for item in items or ():
+        if value in (item.uid, item.summary):
+            return item
+    return None
+```
+
+So a card may address an item by whichever of the two it has. Nothing matching is a
+`ServiceValidationError` with translation key `item_not_found`, and two items with the same
+summary on a list that keeps no uids are indistinguishable: the service updates the first.
+
+**It is a partial update, server-side.** The handler starts from the item it found and
+overwrites only what the call carried:
+
+```python
+# components/todo/__init__.py:486-501
+update = dataclasses.asdict(found)
+if summary := call.data.get("rename"):
+    update["summary"] = summary
+if status := call.data.get("status"):
+    update["status"] = status
+# due_date / due_datetime / description only when the key is in call.data
+await entity.async_update_todo_item(item=TodoItem(**update))
+```
+
+Sending `item` and `status` alone therefore preserves the due date and the description. That
+matters for a card that does not read them: Home Assistant's own to-do card re-sends the
+summary, the due date and the description together, which is safe only because it read all
+three first. Re-sending a field a card never read is how a card corrupts one.
+
+**The feature flags.** `TodoListEntityFeature` is an `IntFlag`, so `supported_features` is a
+sum and a card asks with `&`:
+
+```python
+# components/todo/const.py:35-44
+CREATE_TODO_ITEM = 1
+DELETE_TODO_ITEM = 2
+UPDATE_TODO_ITEM = 4
+MOVE_TODO_ITEM = 8
+SET_DUE_DATE_ON_ITEM = 16
+SET_DUE_DATETIME_ON_ITEM = 32
+SET_DESCRIPTION_ON_ITEM = 64
+```
+
+`local_todo` advertises 127, `shopping_list` 15. Home Assistant's own card does not offer a
+control it cannot use, and gates it on exactly the one flag:
+
+```js
+// frontend, hui-todo-list-card
+.checkboxDisabled=${!this._todoListSupportsFeature(TodoListEntityFeature.UPDATE_TODO_ITEM)}
+```
+
+Calling anyway never reaches the entity: `required_features` is checked in the service
+plumbing and raises `ServiceNotSupported` (helpers/service.py:787-796).
+
+**`hass.callService` takes six arguments, not four.** The signature on the `hass` object a
+card is handed is `(domain, service, serviceData, target, notifyOnError = true,
+returnResponse = false)`. On failure it fires a `hass-notification` toast with
+`duration: 1e4` and then re-throws, so a failed call costs the user a ten-second red banner
+and costs the card a rejected promise, and both have to be planned for. Our own
+`src/core/types/ha.ts` declares only the first four parameters, which means
+`notifyOnError: false` is not reachable from a card in this library today. Widening the
+declaration is a one-line change; nothing has needed it, and a card that suppressed the
+toast would have to show the failure itself.
+
+**The push lands before the call resolves, and that is what shapes an undo.** `local_todo`
+writes state from inside the blocking service call:
+
+```python
+# components/local_todo/todo.py:174-181
+async def async_update_todo_item(self, item: TodoItem) -> None:
+    ...
+    await self.async_update_ha_state(force_refresh=True)
+```
+
+```python
+# components/todo/__init__.py:313-318
+def _async_write_ha_state(self) -> None:
+    super()._async_write_ha_state()
+    self.async_update_listeners()
+```
+
+`async_update_listeners()` is what feeds `todo/item/subscribe`, so the snapshot already
+saying `completed` is queued on the socket before the result frame the `callService` promise
+is waiting for. This is read off the ordering of those two calls on one connection rather
+than observed with a capture, and it is enough to settle the design question: a card cannot
+wait five seconds and then call, because the list has already told it the item is done.
+Anything it wants to show for those five seconds it holds itself, against a snapshot that
+has moved on. `src/cards/reminders/completion.ts` is that hold.
+
+**Home Assistant's own to-do card has no optimistic state and no delay.** `.selected` is
+bound to the pushed items, `_completeItem` awaits the call and does nothing else, and
+completed items render in a section of their own under a divider that a `hide_completed`
+config key suppresses. So a ticked row leaves the list the moment the push arrives. Worth
+knowing as the behaviour a user arriving from that card has been trained on.
+
+**There is no recurrence field of any kind.** `TodoItem` is exactly `summary`, `uid`,
+`status`, `due`, `description`, `completed`. Grepping `components/todo/` and
+`components/local_todo/` for `rrule|recurrence|repeat` returns nothing, and the frontend's
+to-do card, panel and item-dialog chunks contain zero occurrences (`rrule` appears only on
+the `CalendarEvent` mapper). The phone's reminders widget draws a repeat glyph on recurring
+items; there is nothing on this wire to draw one from, so that is a difference no card here
+can close.
+
+**The state is a count, and the attributes carry no items.**
+
+```python
+# components/todo/__init__.py:243-250
+@property
+def state(self) -> int | None:
+    if (items := self.todo_items) is None:
+        return None
+    return sum(item.status == TodoItemStatus.NEEDS_ACTION for item in items)
+```
+
+`_stringify_state` (helpers/entity.py:1063-1076) turns that into `"3"`, `"0"`, `"unknown"`
+or `"unavailable"`. An item whose `status` is null is counted by nothing, which is one
+reason a card that draws the items may want to count them itself rather than read the state.
+
+A to-do entity carries no item data at all: `TodoListEntity` defines no `state_attributes`,
+no `capability_attributes` and no `extra_state_attributes`, and none of core's twelve to-do
+platforms adds any. `friendly_name` and `supported_features` are there; `icon` is there only
+when somebody set one, because the `mdi:clipboard-list` a list is drawn with comes out of
+the domain's `icons.json` and is resolved frontend-side. The subscription is not an
+optimisation over reading attributes, it is the only route to the items.
+
 ## Visual editors (VERIFIED, and the received wisdom here is stale)
 
 A card gets a visual editor by answering `static getConfigElement()`. Without one,

@@ -60,8 +60,8 @@ The site is published to GitHub Pages by `.github/workflows/pages.yml` on every 
 serving it from a domain root wants `SITE_BASE=/ pnpm build:site`.
 
 `pnpm test` covers the parts with no pixels in them: selection, ordering, column
-packing, time formatting, including the worked examples at the bottom of the rules
-document.
+packing, time formatting, row budgets, including the worked examples at the bottom of each
+rules document.
 
 ## Against a real Home Assistant
 
@@ -134,6 +134,14 @@ The dev instance loads the `demo` integration, so `calendar.calendar_1` and
 `calendar.calendar_2` exist to develop against. For calendars you can write to, add
 the **Local Calendar** integration in the UI.
 
+`demo` ships no `todo` platform at all, so there is not a single to-do entity here until you
+add **Local To-do** in the UI, which is config-flow only and cannot be put in
+`configuration.yaml`. That is the integration to add for the reminders card and for the
+calendar card's reminder rows, and it is worth adding for the reminders card in particular:
+it advertises every `TodoListEntityFeature`, so ticking an item off actually works. Note
+that `pnpm ha:reset` takes the list with it, since the integration lives in the instance's
+`.storage` and the reset is a `git clean` of `dev/ha-config`.
+
 ## Screenshots
 
 The README is the first shop window, before the site, before installing anything, which
@@ -202,12 +210,13 @@ dev/
   ha-stubs.ts           stand-ins for the Home Assistant elements cards use
   mock-hass.ts          a `hass` object good enough to develop against
   battery-devices.ts    the battery card's mock devices, and the sets that point at them
+  reminders-lists.ts    the reminders card's mock to-do lists, and the ones the harness offers
   shots.ts              the README's screenshots, as a page a camera can point at
   ha-config/            the throwaway Home Assistant instance
 docs/images/            the README's screenshots, generated, never hand-edited
 ```
 
-Both cards are split so that the rules can be read and tested without a browser:
+All three cards are split so that the rules can be read and tested without a browser:
 
 ```
 cards/calendar/
@@ -227,11 +236,23 @@ cards/battery/
   layout.ts                how many rings, in how many rows, captioned or not, how big
   ring.ts                  the arc: its coordinate space, and why it is always green
   model.ts                 a Home Assistant state as a device: level, icon, charging
+
+cards/reminders/
+  reminders-card.ts        the element: measure the box, own the clock, draw the answer
+  reminders-card-editor.ts one row, the list to draw; Scale is added by the base editor
+  layout.ts                which of the three shapes the box is, and how many rows it holds
+  completion.ts            what a tap does, and what is drawn while it can be taken back
+  model.ts                 a to-do list and its items, and the page a tap on the name opens
+  source.ts                the one `todo/item/subscribe` subscription the rows arrive on
 ```
 
-The battery card has no `demo-data.ts` and needs none: everything it draws comes out of
-`hass.states`, so a fixture is a mock entity plus the config that points at it, and both live
-in `dev/` rather than in the shipped bundle.
+Neither the battery card nor the reminders card has a `demo-data.ts`, and neither needs one:
+what they draw comes out of the installation they are pointed at, so a fixture is a mock
+entity plus the config that points at it, and both live in `dev/` rather than in the shipped
+bundle. For the battery card that is `dev/battery-devices.ts`; for the reminders card it is
+`dev/reminders-lists.ts`, whose four lists `dev/mock-hass.ts` then serves the
+`todo/item/subscribe` subscription from. The two dated lists defined in `mock-hass.ts` itself
+are the calendar card's, and editing those changes nothing on the reminders card.
 
 Cards read `--cw-*` tokens, never Home Assistant variables directly. `theme/tokens.ts`
 is the single place that bridge lives, so a user's theme restyles every card for free.
@@ -282,6 +303,9 @@ different way than it is. Keep the tab in front, or take a screenshot to bring i
 - [`battery-widget-rules.md`](battery-widget-rules.md). The same for the battery card: how
   many rings, when they get a percentage, and why the ring is never red. Its §8 table is
   `layout.test.ts`'s first two cases.
+- [`reminders-widget-rules.md`](reminders-widget-rules.md). The same for the reminders card:
+  which of its three shapes a box gets, how many rows fit, and what a tap on a row does for
+  the five seconds it can be taken back.
 - [`ha-api-notes.md`](ha-api-notes.md): the Home Assistant APIs this library depends on,
   each verified against the frontend bundle shipped in the HA image rather than against
   documentation, including several points where the widely-repeated advice is now wrong.

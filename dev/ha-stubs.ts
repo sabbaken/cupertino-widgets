@@ -9,12 +9,16 @@
  */
 
 import {
+  mdiAccountMultiple,
+  mdiBagSuitcase,
   mdiBattery,
   mdiBatteryUnknown,
   mdiCellphone,
+  mdiClipboardList,
   mdiDoorbellVideo,
   mdiHeadphones,
   mdiHelpCircleOutline,
+  mdiHome,
   mdiLaptop,
   mdiTablet,
   mdiWatch,
@@ -174,16 +178,25 @@ const HA_FORM_CSS = `
  * into the showcase that GitHub Pages then serves to every visitor, for the sake of icons only
  * this file's own mock devices ever ask for.
  *
- * So: add an entry when `battery-devices.ts` grows one. A name with no entry draws the
- * question mark rather than nothing, on the same grounds as the `ha-form` stub's unsupported
- * row: a silently blank icon reads as a broken card, and the cards are what this page is for.
+ * So: add an entry when a fixture file grows one, which is `battery-devices.ts` for a device's
+ * icon and `reminders-lists.ts` for a to-do list's. A name with no entry draws the question
+ * mark rather than nothing, on the same grounds as the `ha-form` stub's unsupported row: a
+ * silently blank icon reads as a broken card, and the cards are what this page is for.
+ *
+ * `mdi:clipboard-list` is not any fixture's: it is the reminders card's own fallback, and the
+ * one a visitor sees most, because Home Assistant resolves a to-do list's default glyph
+ * frontend-side and it therefore never reaches `attributes` for a fixture to carry.
  */
 const ICONS: Record<string, string> = {
+  'mdi:account-multiple': mdiAccountMultiple,
+  'mdi:bag-suitcase': mdiBagSuitcase,
   'mdi:battery': mdiBattery,
   'mdi:battery-unknown': mdiBatteryUnknown,
   'mdi:cellphone': mdiCellphone,
+  'mdi:clipboard-list': mdiClipboardList,
   'mdi:doorbell-video': mdiDoorbellVideo,
   'mdi:headphones': mdiHeadphones,
+  'mdi:home': mdiHome,
   'mdi:laptop': mdiLaptop,
   'mdi:tablet': mdiTablet,
   'mdi:watch': mdiWatch,
