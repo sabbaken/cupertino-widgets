@@ -278,19 +278,27 @@ The unit is one line of text inside the card.
 | medium, left column  | 4      |
 | medium, right column | 7      |
 
-A node goes in the current column if it fits there whole; otherwise the next column
-takes it. A heading is a node like any other and holds nothing back for what follows it: it
-is drawn wherever its one row fits, and if its first event will not fit under it, that event
-starts the next column while the heading finishes this one. One guard, applied at the end: a
-heading that came out the last row drawn anywhere is taken back off the card, because what
-it heads is nothing, not even a count, which would have gone under it had there been a row
-to put one on.
+A node goes in the current column if it fits there whole; otherwise the next column takes
+it. **A heading and the first row of its section are one unit.** The heading asks for its
+own row and that row together, and where the two will not fit, the whole section starts the
+next column while the rows the heading passed over are left blank. The widget glues the
+pair, and this is the reading that makes it worth the wasted rows: a day whose name is at
+the foot of one column and whose first event is at the head of the next is a day nobody
+reads as one day.
 
-This is a rule the screenshots settled against the reservation it replaces, which moved a
-whole section on unless its first row could follow the heading in the same column. That cost
-the widget headings it was perfectly able to draw: `WEDNESDAY, 29 JUL` over `1 more event`,
-with not one of that day's events on screen, is the shape the reservation forbade and the
-widget does. §10 has what it costs to state the rule this simply.
+The row a heading arrives with is usually its first event, and at the end of the flow it can
+be the count instead. `WEDNESDAY, 29 JUL` over `1 more event`, with not one of that day's
+events on screen, is a section saying how much of itself did not fit, and that is a row of
+the section as much as an event is. So the pair holds and both screenshots are satisfied by
+it: what is held back is a row of the day rather than the day's first event. That pair costs
+two rows and buys them the way the tail buys its one, below: a location line may pay for the
+second, an event never does. And the count belongs to the end of the flow, so no column the
+flow carries on past ever ends on a heading.
+
+The pair is priced at what its first row costs _plainly_: an all-day entry's one row or a
+timed event's two, never the three a location would like. A day that started in one column
+or the other depending on whether its first event happened to name a street would be the
+packing showing through, and the location is dropped under §6's own rule instead.
 
 ### The tail
 
@@ -305,7 +313,9 @@ summarised at all. A calendar carrying a month of recurring events used to read
 and a nonsense one about tomorrow; two of tomorrow's five events drawn under that heading
 is `3 more events`. Headings do not count either, for the same reason they end the count:
 a section that got cut takes its heading with it, and `2 more events` that meant "one
-event and one Thursday" would be a lie. Singular is `1 more event`.
+event and one Thursday" would be a lie. The row's own section is the exception it has to
+be: where the count stands in for the first row of a section (above), that section's
+heading is drawn over the count rather than counted in it. Singular is `1 more event`.
 
 The indicator costs a row like everything else, and on a column that came out exactly full
 it buys one, cheapest first:
@@ -313,12 +323,16 @@ it buys one, cheapest first:
 1. the last location line drawn in that column gives way (§6's third line, handed back);
 2. failing that, the last event drawn steps aside and joins the count.
 
+A count arriving with its own heading (above) costs two rows and shops from the same list,
+with the second line struck out: one location may go on it and an event may not, so a
+column with nothing spare at all cannot reach it and the day goes unmentioned.
+
 What it will not buy is its own section's last visible row. If what sits above the event it
 would evict is a heading, or there is nothing above it at all, the event stays and the
 widget says nothing. The second of those would leave a column holding a count and no
 calendar, which is worse than a quiet one. The first is not about the shape that comes out
-but about the price: `TOMORROW` over nothing but a count is a legitimate row when a spare
-one paid for it, and tomorrow's one readable event (its title, its time) is too much to
+but about the price: `TOMORROW` over nothing but a count is a legitimate shape when spare
+rows paid for it, and tomorrow's one readable event (its title, its time) is too much to
 pay for the same row when it is not going spare.
 
 The count-and-no-calendar half is a rule about the column and not only about the trade, so
@@ -436,7 +450,7 @@ row in it, in order. Tomorrow is three more rows in every case.
 | --------------------------------- | ----- | --------- | ---------------------------------- |
 | 3 events, no locations            | `2+2` | `2+1+2+1` | full column: an event buys the row |
 | 2 events                          | `2+2` | `1+2+2+2` | everything fitted                  |
-| 1 event with a location           | `3+1` | `2+2+2`   | everything fitted                  |
+| 1 event with a location           | `3`   | `1+2+2+2` | everything fitted                  |
 | 2 events, a location on the first | `3`   | `2+1+2+1` | full column: an event buys the row |
 | 2 events, a location on both      | `3`   | `3+1+2+1` | that last `1` is `2 more events`   |
 | all-day + 1 event with a location | `1+3` | `1+2+2+2` | everything fitted                  |
@@ -446,10 +460,10 @@ came out at `2+1+2+2` there and let tomorrow's third event vanish, where this ca
 column on `2 more events`: the event that had been drawn last is the one that paid for it.
 Both are still cut mid-tomorrow, so both counts are tomorrow's own.
 
-The third row is the one the heading rule moved, and the `1` at the end of that left column
-is `TOMORROW`: the location takes three of the four rows, and the row it leaves over is
-enough for a heading that no longer has to arrive with its first event. §10 is where that
-disagrees with a screenshot.
+The third row is where the pair costs a row and the screenshot agrees that it should: the
+location takes three of the four in the left column, and the one left over is not enough for
+`TOMORROW` and the event under it, so tomorrow starts the right column and that row is spent
+on nothing at all.
 
 The fifth row is the seventh screenshot, and it is worth reading twice: the location
 `Focha 4, Warsawa` on the second event is what cost tomorrow two of its three rows.
@@ -501,10 +515,9 @@ form the card is sitting inside.
 
 ## 10. Still open
 
-No screenshot settles the first two, so they are decided rather than known; the third has
-two screenshots that settle it opposite ways. Each is one edit: the trade in `addMoreRow`,
-the wording in `moreLabel`, the room `packFlow` asks for before it draws a heading, and
-the current answer is whichever keeps the rule simplest to state.
+No screenshot settles either of these, so they are decided rather than known. Each is one
+edit, the trade in `addMoreRow` and the wording in `moreLabel`, and the current answer is
+whichever keeps the rule simplest to state.
 
 - **What to call them.** Always `events`, even when everything hidden is a reminder.
   `2 more items` would be truthful and is uglier.
@@ -514,18 +527,15 @@ the current answer is whichever keeps the rule simplest to state.
   only where it is free (a location line, or slack) and go quiet on a full column, which
   is what Apple does and what this card did until the count stopped over-reporting.
 
-- **What a heading has to arrive with.** Nothing, per §5, and that is the one rule here
-  where two screenshots cannot both be right. `WEDNESDAY, 29 JUL` over `1 more event` says a
-  heading is drawn with no event of its own under it; §8's third row says a heading passed
-  over a spare row at the foot of the left column and started the right one instead. A middle
-  rule fits both: hold back the heading's row and one more for _anything at all_, a count
-  included, rather than for the first event's own cost. It is written down rather than
-  adopted because the reservation it revives is the part that was wrong (the cost of the
-  first row is what made a heading's placement depend on what kind of event followed it),
-  and because a rule ending in one guard at the end of packing is a rule the tests can state
-  in one line. The screenshot it gives up is the cheaper of the two to be wrong about: a
-  heading one column early is a heading the reader still finds, where a heading the widget
-  declined to draw is a day that silently stopped existing.
+Two questions used to be open here, and both are settled.
 
-How far `N` reaches used to be open here as well. It is settled: the section the row is
-drawn inside, and nothing beyond the next heading.
+**How far `N` reaches**: the section the row is drawn inside, and nothing beyond the next
+heading.
+
+**What a heading has to arrive with**: a row of its own section, which is its first event or
+the count standing in for it (§5). The two screenshots only looked opposed while the
+question was being asked about the first _event_, and neither of them answers that one.
+`WEDNESDAY, 29 JUL` over `1 more event` keeps its heading, the spare row at the foot of §8's
+third left column goes to nobody, as that screenshot has it, and the rule is still one line.
+What it gives up is the rows a split heading used to save, and those were rows the reader
+paid for in a day that arrived in two pieces.

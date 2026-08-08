@@ -140,16 +140,11 @@ describe('the reference screenshots', () => {
 
   it('one event with a location: it expands and eats the left column', () => {
     const flow = [row('A', 'Długa 36, Warsawa'), TOMORROW, ...REST_OF_TOMORROW]
-    // The row the location leaves over is the heading's: `TOMORROW` finishes the left
-    // column and its first event reads on at the top of the right one.
-    expect(costs(flow, [4, 7], 'medium')).toEqual([
-      [3, 1],
-      [2, 2, 2],
-    ])
-    expect(titles(flow, [4, 7], 'medium')).toEqual([
-      ['A', 'TOMORROW'],
-      ['T1', 'T2', 'T3'],
-    ])
+    // The location takes three of the four rows and the row it leaves over is not enough
+    // for `TOMORROW` and tomorrow's first event, so the whole of tomorrow starts the right
+    // column and that odd row goes unspent.
+    expect(costs(flow, [4, 7], 'medium')).toEqual([[3], [1, 2, 2, 2]])
+    expect(titles(flow, [4, 7], 'medium')).toEqual([['A'], ['TOMORROW', 'T1', 'T2', 'T3']])
   })
 
   it('a location wins even when it pushes the next event across', () => {
@@ -170,18 +165,34 @@ describe('medium: packing rules', () => {
     expect(columns[0]!.rows[1]!.expanded).toBe(false)
   })
 
-  it('draws a heading that fits and lets its first event cross without it', () => {
+  it('moves a whole section on rather than draw its heading without its first row', () => {
     // Two rows left after the events, and a heading with a timed entry under it needs
-    // three. The heading is worth the row it stands in regardless, and `S1` reads on from
-    // it at the top of the next column; the reservation this replaced moved both.
+    // three. Sunday's name would fit where it stands and Sunday's first event would not,
+    // which is the split the pair exists to refuse: both go, and the two rows the heading
+    // passed over stay blank.
     const flow = [row('A'), row('B'), heading('SUNDAY, 26 JUL'), row('S1')]
-    expect(titles(flow, [6, 7], 'medium')).toEqual([['A', 'B', 'SUNDAY, 26 JUL'], ['S1']])
+    expect(titles(flow, [6, 7], 'medium')).toEqual([
+      ['A', 'B'],
+      ['SUNDAY, 26 JUL', 'S1'],
+    ])
+    expect(packFlow(flow, [6, 7], 'medium')[0]!.used).toBe(4)
   })
 
-  it('lets a heading stand with nothing under it but the count', () => {
-    // The screenshot the heading rule comes from: a date over `2 more events`, with not one
-    // of that day's events drawn. The heading fits where it is, its first event does not,
-    // and the row that leaves over says how much of the day is missing.
+  it('asks for the same room whether or not the first event carries a location', () => {
+    // Three rows left and a heading whose event has an address on it. The pair is priced
+    // at what that event costs plainly, so the section starts here and the location is
+    // the thing that gives way: a day that began in one column or the other depending on
+    // whether its first event happened to name a street would be the packing showing.
+    const flow = [row('A'), row('B'), TOMORROW, row('T1', 'Długa 36, Warsawa')]
+    expect(costs(flow, [7, 7], 'medium')).toEqual([[2, 2, 1, 2], []])
+    expect(titles(flow, [7, 7], 'medium')[0]).toEqual(['A', 'B', 'TOMORROW', 'T1'])
+  })
+
+  it('lets a heading arrive with the count when its own events cannot follow it', () => {
+    // The other screenshot: a date over `2 more events`, with not one of that day's events
+    // drawn. Two rows left and tomorrow's first event needs three of them with the heading,
+    // so the section is cut whole; the count is a row of tomorrow's all the same, and two
+    // spare rows is exactly what the pair costs.
     const flow = [row('A'), row('B'), row('C'), TOMORROW, row('T1'), row('T2')]
     expect(titles(flow, [4, 4], 'medium')).toEqual([
       ['A', 'B'],
@@ -189,9 +200,11 @@ describe('medium: packing rules', () => {
     ])
   })
 
-  it('takes back a heading that came out the last row on the card', () => {
-    // It fits at the foot of the right column, none of Sunday does, and there is no row
-    // left for a count either, so what it heads is nothing at all.
+  it('draws no heading at all where the count cannot follow it either', () => {
+    // One row left at the foot of the right column. Sunday cannot start there (three
+    // rows), and neither can it start with the count (two), with no location line in the
+    // column to hand back for the second. So the day goes unmentioned and the row goes
+    // unspent: a heading over nothing announces its own absence.
     const flow = [row('A'), row('B'), TOMORROW, row('T1'), heading('SUNDAY, 26 JUL'), row('S1')]
     expect(titles(flow, [4, 4], 'medium')).toEqual([
       ['A', 'B'],
@@ -312,6 +325,31 @@ describe('the tail indicator', () => {
     expect(costs(flow, [4, 7], 'medium')).toEqual([
       [2, 2],
       [2, 2, 2, 1],
+    ])
+  })
+
+  it('hands back a location line to say a day exists at all', () => {
+    // The default footprint, and the pair one row short at the foot of the right column:
+    // the last location drawn there covers it, exactly as it covers a count under an
+    // event. Tomorrow's name and the size of it are worth more than the street under `D`,
+    // and a day the reader would otherwise never hear of is the dearest thing on offer.
+    const flow = [
+      row('A'),
+      row('B'),
+      row('C', 'Długa 36, Warsawa'),
+      row('D', 'Focha 4, Warsawa'),
+      TOMORROW,
+      row('T1'),
+    ]
+    expect(titles(flow, [4, 7], 'medium')).toEqual([
+      ['A', 'B'],
+      ['C', 'D', 'TOMORROW', '1 more'],
+    ])
+    // `C` keeps its three rows and `D` gives its line back: the last one handed out is the
+    // first one taken away.
+    expect(costs(flow, [4, 7], 'medium')).toEqual([
+      [2, 2],
+      [3, 2, 1, 1],
     ])
   })
 
@@ -531,9 +569,10 @@ describe('invariants, over twenty thousand random flows', () => {
     return flow
   }
 
-  it('holds its budget, never ends on a heading, and never reorders', () => {
+  it('holds its budget, never orphans a heading, and never reorders', () => {
     const broken: string[] = []
     let indicators = 0
+    let headings = 0
 
     for (let trial = 0; trial < 20_000 && broken.length === 0; trial += 1) {
       const flow = randomFlow()
@@ -547,14 +586,17 @@ describe('invariants, over twenty thousand random flows', () => {
         if (column.rows.reduce((sum, r) => sum + r.cost, 0) !== column.used) {
           broken.push(`used does not match the rows: ${where}`)
         }
+        // The pair, stated over every column rather than over the card: a heading is
+        // never the last row of one, so the day's name and the first row of that day are
+        // always found in the same place. The last column drawn is the card's end and is
+        // covered by the same line, a heading there heading nothing at all.
+        if (column.rows[column.rows.length - 1]?.node.type === 'header') {
+          broken.push(`heading left at the foot of a column: ${where}`)
+        }
       }
 
       const rows = columns.flatMap(column => column.rows)
-      // A heading may end a column, the flow carrying on in the next one, but not the
-      // card: with nothing after it anywhere it heads nothing at all.
-      if (rows[rows.length - 1]?.node.type === 'header') {
-        broken.push(`heading left as the last row drawn: ${where}`)
-      }
+      headings += rows.filter(r => r.node.type === 'header').length
       const tail = rows.filter(r => r.node.type === 'more')
       indicators += tail.length
       if (tail.length > 1) broken.push(`more than one indicator: ${where}`)
@@ -589,8 +631,10 @@ describe('invariants, over twenty thousand random flows', () => {
     }
 
     expect(broken).toEqual([])
-    // Everything above is vacuous on a sample that never overflowed.
+    // Everything above is vacuous on a sample that never overflowed, and the pair is
+    // vacuous on one that never drew a day's name in the first place.
     expect(indicators).toBeGreaterThan(1_000)
+    expect(headings).toBeGreaterThan(1_000)
   })
 })
 

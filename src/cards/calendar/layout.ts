@@ -10,12 +10,16 @@
  *   section heading                           1 row
  *   "2 more events"                           1 row
  *
- * A node goes in the current column if it fits whole, otherwise the next column takes
- * it. A heading is one such node and holds nothing back for what follows it: it is drawn
- * wherever its one row fits, and its first event goes into the next column if that is where
- * there is room for it. Nothing is ever skipped over to make something later fit: the flow is
- * chronological, so today is drawn before tomorrow is drawn before Sunday, and what falls
- * off the bottom is always the far end of the week.
+ * A node goes in the current column if it fits whole, otherwise the next column takes it.
+ * A heading is the one node not placed on its own account: it asks for its row and the
+ * first row of its section together, and where that pair will not fit, both travel on to
+ * the next column while the rows the heading passed over are left blank. `TOMORROW` at
+ * the foot of the left column with tomorrow's first event at the head of the right is a
+ * day the reader has to assemble out of two places, and the widget this copies never asks
+ * that: the name of the day and the first thing on it are one unit. Nothing is ever
+ * skipped over to make something later fit: the flow is chronological, so today is drawn
+ * before tomorrow is drawn before Sunday, and what falls off the bottom is always the far
+ * end of the week.
  *
  * What is left over is summarised as `2 more events`, and that row speaks for ONE DAY:
  * the section it lands in, never the whole loaded fortnight behind it. It costs a row
@@ -24,9 +28,15 @@
  * joins the count. What it will not buy is its own section's last visible row: that trade
  * spends the one event of the day the reader could actually read.
  *
- * A heading is allowed to end a column, then, but not the card: a heading with the count
- * under it says how much of its day did not fit, while a heading with nothing under it
- * announces its own absence. `dropTrailingHeader` is the whole of that guard.
+ * The count is the other row a heading can arrive with, and the reason the pair above is
+ * stated as a row of the section rather than as its first event. A section cut before any
+ * of it was drawn begins the tail with its own heading, and `WEDNESDAY, 29 JUL` over
+ * `1 more event` is that section saying how much of itself is missing: the same pair, with
+ * the count standing in for the event there was no room for. `addMoreRow` is where that
+ * one is drawn, and it is bought exactly as the count under an event is, a location line
+ * at a time and never an event. It cannot arise mid-card, a count belonging to the end of
+ * the flow, which is what leaves the rule above absolute: no column the flow carries on
+ * past ever ends on a heading.
  *
  * The two sizes disagree about locations, and the disagreement is deliberate:
  *
@@ -116,14 +126,19 @@ export function packFlow(
     if (index >= columns.length) break
 
     if (node.type === 'header') {
-      // Its own row and nothing reserved behind it. What this replaces held back the cost
-      // of the first event as well and moved the whole section on if that would not fit,
-      // which cost the widget headings it was perfectly able to draw; the screenshots
-      // do not do it either: `WEDNESDAY, 29 JUL` appears above a `1 more event` with not
-      // one of that day's events drawn. `dropTrailingHeader` is all that is left of it.
-      if (room() < COST.header) {
+      const next: FlowNode | undefined = flow[cursor + 1]
+      // Nothing of its own to head, so there is nothing after it to draw either.
+      if (next?.type !== 'item') break
+
+      // Its row and one for the day under it, asked for together. The cost is the least
+      // that first row can be drawn for, not what it would like to cost: a location the
+      // column cannot afford is dropped below rather than allowed to move the heading,
+      // which would make where a day starts depend on whether its first event happens to
+      // carry an address.
+      const pair = COST.header + plainCost(next)
+      if (room() < pair) {
         index += 1
-        if (index >= columns.length || room() < COST.header) break
+        if (index >= columns.length || room() < pair) break
       }
       place(node, COST.header, false)
       continue
@@ -153,7 +168,6 @@ export function packFlow(
   // "Count wins" is about how much of the day you know about, not how much is drawn, and
   // it is why the indicator may take a row back off the packing above, never the reverse.
   addMoreRow(columns, flow.slice(cursor), Math.min(index, columns.length - 1))
-  dropTrailingHeader(columns)
   if (mode === 'small') expandFromSlack(columns[0])
 
   return columns
@@ -177,14 +191,26 @@ export function packFlow(
  * Headings are not counted either, for the same reason they end the count: a section that
  * got cut takes its heading with it, and `2 more events` meaning "one event and one
  * Thursday" would be a lie.
+ *
+ * **A section cut before it began is the one exception**, and the heading comes with the
+ * row. The tail starts with that heading, packing having refused to draw it without a row
+ * of its own under it, and the count is a row of its own: `WEDNESDAY, 29 JUL` over
+ * `1 more event` says a day is there and how much of it is missing, which is why the count
+ * is read past that heading rather than stopped by it. The pair costs two rows and buys
+ * them off the same list as everything else here: one location line may be spent on it, a
+ * day the reader would otherwise never hear of being worth more than a street, and an
+ * event may not, which is `evictLast`'s refusal arrived at from the other end.
  */
 function addMoreRow(columns: LayoutColumn[], tail: readonly FlowNode[], index: number): void {
   const column = columns[index]
   if (!column) return
 
+  const first = tail[0]
+  const heading = first?.type === 'header' ? first : undefined
+
   let count = 0
   let color: string | undefined
-  for (const node of tail) {
+  for (const node of tail.slice(heading ? 1 : 0)) {
     // The next day starts here, and it is not this row's day to speak for.
     if (node.type === 'header') break
     count += 1
@@ -202,7 +228,18 @@ function addMoreRow(columns: LayoutColumn[], tail: readonly FlowNode[], index: n
   // less must not drop the event and announce it instead.
   if (!column.rows.some(placed => placed.node.type === 'item')) return
 
-  if (column.budget - column.used < COST.more) {
+  if (heading) {
+    // Two rows where a count under an event wants one, and the second comes off the same
+    // list: a location line may be handed back for it, a day the reader would otherwise
+    // never hear of being worth more than a street. An event may not, which is
+    // `evictLast`'s refusal below read from the other end, and one location line is all a
+    // column has to give, so nothing at all going spare puts the pair out of reach.
+    const spare = column.budget - column.used
+    if (spare < COST.header) return
+    if (spare < COST.header + COST.more && !reclaimLocation(column)) return
+    column.used += COST.header
+    column.rows.push({ node: heading, cost: COST.header, expanded: false })
+  } else if (column.budget - column.used < COST.more) {
     // Nothing was spare, so the row is bought: cheapest first, and a location line is
     // always cheaper than an event. Either way it is exactly the one row that is short,
     // never two: `used` cannot exceed `budget`, so the shortfall is `COST.more` at most.
@@ -222,35 +259,6 @@ function addMoreRow(columns: LayoutColumn[], tail: readonly FlowNode[], index: n
     cost: COST.more,
     expanded: false,
   })
-}
-
-/**
- * Take back a heading that turned out to be the last thing drawn anywhere.
- *
- * The only guard left on the heading rule, and the reason it is a pass at the end rather
- * than a reservation at the front: whether a heading was worth its row is not knowable
- * when it is placed. `2 more events` may still arrive underneath it, and a heading with a
- * count under it is a section saying how much of itself did not fit. A heading with
- * nothing under it announces its own absence, which is worth neither the row nor the
- * reading.
- *
- * After `addMoreRow`, therefore, and nothing is retried once the heading goes. The row it
- * gives back belongs to the section just removed (the tail begins with that section's
- * first event), so a count bought with it would sit under the previous day's rows and be
- * read as that day's.
- *
- * The last drawn row is enough to test: rows are a prefix of the flow, so a heading with
- * anything after it at all has that something in the next column, where the flow carries
- * on and the reader follows it.
- */
-function dropTrailingHeader(columns: LayoutColumn[]): void {
-  const drawn = columns.filter(column => column.rows.length)
-  const column = drawn[drawn.length - 1]
-  if (!column) return
-  const last = column.rows[column.rows.length - 1]
-  if (last?.node.type !== 'header') return
-  column.rows.pop()
-  column.used -= last.cost
 }
 
 /**
