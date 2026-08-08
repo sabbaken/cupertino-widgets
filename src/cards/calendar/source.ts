@@ -32,6 +32,7 @@
 
 import type { HomeAssistant } from '../../core/types/ha'
 import { isWireDateOnly, parseWireDate } from './datetime'
+import type { DayWindow } from './flow'
 import type { CalendarItem } from './model'
 
 /**
@@ -226,28 +227,35 @@ export interface SubscriptionWindow {
 /**
  * The span to ask Home Assistant for, and when to ask again.
  *
- * Padded a day behind and two ahead of what the card can draw, and keyed on the UTC day
- * rather than on the display one. Both of those are on purpose:
+ * `window` is the card's own window of days (`dayWindow` in `flow.ts`), padded a day at
+ * each end and keyed on the UTC day rather than on the display one. All three of those
+ * are on purpose:
  *
  *  - the pad is what lets the window be computed without a timezone at all. A day is
  *    more than the ±14 hours any zone is from UTC, so a window this wide covers local
- *    midnight today through local midnight in `days` days' time, wherever the dashboard
- *    is being read. Precision here would buy nothing: `buildFlow` decides what is
- *    actually on screen, in the display zone, and it is stricter than this is;
+ *    midnight on the first day through local midnight after the last, wherever the
+ *    dashboard is being read. Precision here would buy nothing: `buildFlow` decides what
+ *    is actually on screen, in the display zone, and it is stricter than this is;
  *  - the key is what stops the re-subscribing. The card's clock ticks every minute, and
  *    a window keyed on the instant would tear down and rebuild every subscription sixty
  *    times an hour. Keyed on the day it moves once, and the move is the midnight
- *    rollover the widget needs anyway.
+ *    rollover the widget needs anyway;
+ *  - the key carries the offset and the span as well as the day, and it has to. It is the
+ *    only thing `reconcile` compares, and the span is baked into each subscription: a key
+ *    that named the day alone would leave a card whose `day_offset` had just been edited
+ *    holding subscriptions to the days it used to show, with nothing to tell it.
  *
  * A multi-day event that began before the window still arrives: Home Assistant returns
- * anything OVERLAPPING the span, and `buildFlow` carries a running event into today.
+ * anything OVERLAPPING the span, and `buildFlow` carries a running event into the first
+ * day it draws.
  */
-export const subscriptionWindow = (now: Date, days: number): SubscriptionWindow => {
+export const subscriptionWindow = (now: Date, window: DayWindow): SubscriptionWindow => {
   const day = Math.floor(now.getTime() / 86_400_000)
+  const first = day + window.offsetDays
   return {
-    start: new Date((day - 1) * 86_400_000),
-    end: new Date((day + days + 2) * 86_400_000),
-    key: String(day),
+    start: new Date((first - 1) * 86_400_000),
+    end: new Date((first + window.spanDays + 1) * 86_400_000),
+    key: `${day}|${window.offsetDays}|${window.spanDays}`,
   }
 }
 

@@ -1,12 +1,24 @@
 import { describe, expect, it } from 'vitest'
 
-import { applyFormData, formData } from './card-editor'
+import { applyFormData, fieldNames, formData } from './card-editor'
 import type { HaFormSchema, LovelaceCardConfig } from './types/ha'
 
 const SCHEMA: readonly HaFormSchema[] = [
   { name: 'size', selector: { select: { mode: 'box', options: [] } } },
   { name: 'entities', selector: { entity: { multiple: true, filter: { domain: 'calendar' } } } },
   { name: 'scale', selector: { number: { min: 80, max: 130, step: 5, mode: 'slider' } } },
+]
+
+/** The same, with two of its rows folded into an Advanced section. */
+const GROUPED: readonly HaFormSchema[] = [
+  SCHEMA[0],
+  {
+    name: 'advanced',
+    type: 'expandable',
+    flatten: true,
+    title: 'Advanced',
+    schema: [SCHEMA[1], SCHEMA[2]],
+  },
 ]
 
 /** Typed as a card config, so `formData` infers the open shape rather than the literal. */
@@ -62,6 +74,32 @@ describe('formData', () => {
   it('does not widen a blank into a list of one blank', () => {
     expect(formData(config({ entities: null }), {}, SCHEMA).entities).toBeNull()
     expect(formData(config({ entities: '' }), {}, SCHEMA).entities).toBe('')
+  })
+
+  /**
+   * A group is a place to draw rows, not a value: it has no selector of its own, and the
+   * first version of the widening loop found that out by reading `'entity' in undefined`
+   * and taking every editor in the library down with it.
+   */
+  it('walks into a group instead of tripping over it', () => {
+    expect(formData(config({ entities: 'calendar.work' }), {}, GROUPED).entities).toEqual([
+      'calendar.work',
+    ])
+    expect('advanced' in formData(config(), {}, GROUPED)).toBe(false)
+  })
+})
+
+/**
+ * Which fields an editor owns, which is the list `applyFormData` writes back.
+ *
+ * The rows inside a `flatten` group are the editor's own, exactly as the ones beside it
+ * are: a version of this that stopped at the group reported `advanced` as the field, so an
+ * Advanced section drew, accepted an edit, and saved none of it.
+ */
+describe('fieldNames', () => {
+  it('is the rows in order, groups walked into', () => {
+    expect(fieldNames(SCHEMA)).toEqual(['size', 'entities', 'scale'])
+    expect(fieldNames(GROUPED)).toEqual(['size', 'entities', 'scale'])
   })
 })
 

@@ -14,10 +14,10 @@ import { cwNavigate } from '../../core/navigate'
 import { registerCard } from '../../core/register'
 import type { HomeAssistant, LovelaceCardEditor } from '../../core/types/ha'
 import { CALENDAR_EDITOR_TAG } from './calendar-card-editor'
-import { timePreferences, type TimeFormatOption } from './datetime'
+import { displayTimeZone, timePreferences, type TimeFormatOption } from './datetime'
 import { demoItems } from './demo-data'
-import { LOOKAHEAD_DAYS, buildFlow } from './flow'
-import { TIME_DASH, itemTime, moreLabel, widgetDate } from './format'
+import { buildFlow, dayWindow } from './flow'
+import { TIME_DASH, emptyLabel, itemTime, moreLabel, widgetDate } from './format'
 import type { FormatContext, ItemTime, TimeToken } from './format'
 import { geometryFor, packFlow, type LayoutColumn, type LayoutRow } from './layout'
 import { itemTarget, type CalendarItem } from './model'
@@ -51,6 +51,26 @@ export interface CalendarCardConfig extends CupertinoCardConfig {
    */
   time_format?: TimeFormatOption
   /**
+   * Which day the card starts on, counted from today: `1` is tomorrow, `-1` yesterday.
+   *
+   * The card is about today by default, and this is what lets it be about another day
+   * instead: three cards side by side, showing yesterday, today and tomorrow, is the
+   * arrangement it was asked for. The day this lands on is the **anchor day**, and it is
+   * the one the date block prints and the one that gets no heading in the flow.
+   *
+   * A day in the past is drawn whole rather than emptied by the clock: see `buildFlow`.
+   */
+  day_offset?: number
+  /**
+   * How many days the card covers, counting the anchor day. `1` pins it to that day alone.
+   *
+   * Named after Home Assistant's own calendar card, which calls the same quantity the same
+   * thing, rather than after the `day_offset` beside it: a user arriving from that card
+   * already knows this one. Absent means a fortnight, which is more than any footprint can
+   * draw, so leaving it alone is the same as not having it.
+   */
+  days_to_show?: number
+  /**
    * Which fixture from `demo-data.ts` to draw INSTEAD of the user's calendars.
    *
    * For the dev harness, and nothing else. Absent (which is what every dashboard has, in
@@ -60,18 +80,6 @@ export interface CalendarCardConfig extends CupertinoCardConfig {
    */
   demo_scenario?: string
 }
-
-/**
- * Not localised yet: Home Assistant has no string for either and the widget being copied
- * says exactly these. One place to change when a translation layer exists.
- *
- * Two of them, because "nothing left" and "nothing at all" are different days and a
- * widget that cannot tell them apart is one the user has to check the calendar behind.
- * `No Events Today` at seven in the evening, after a day of meetings, reads as data
- * missing rather than as a day finished.
- */
-const NO_EVENTS_TODAY = 'No Events Today'
-const NO_MORE_EVENTS_TODAY = 'No More Events Today'
 
 /**
  * How the MDI glyph is centred in the badge.
@@ -533,7 +541,10 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
       this._feed.reconcile(
         hass,
         calendarsFor(this._config?.entities, hass),
-        subscriptionWindow(this._now, LOOKAHEAD_DAYS),
+        // The configured window, not the drawn one: the small size narrows itself to a
+        // single day at render, and re-subscribing every time a card was dragged across
+        // the threshold would spend a round trip on data it already had.
+        subscriptionWindow(this._now, dayWindow(this._config)),
         this._timeZone,
       ),
       this._reconcileTodos(hass),
@@ -572,14 +583,9 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
     }, untilNextMinute + 100)
   }
 
-  /**
-   * The zone the user reads the dashboard in.
-   *
-   * Home Assistant lets a profile follow the server's timezone instead of the
-   * browser's, and "is that tomorrow" is a different question in each.
-   */
+  /** The zone the user reads the dashboard in; see `displayTimeZone`. */
   private get _timeZone(): string | undefined {
-    return this.hass?.locale?.time_zone === 'server' ? this.hass.config?.time_zone : undefined
+    return displayTimeZone(this.hass)
   }
 
   private _renderToken(token: TimeToken): TemplateResult {
@@ -727,15 +733,25 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
     const items =
       fixtures === undefined ? [...this._items, ...this._reminders] : demoItems(fixtures, now)
 
-    // Small is today and nothing else, however busy tomorrow looks.
-    const flow = buildFlow(items, { now, ctx, todayOnly: mode === 'small' })
+    const window = dayWindow(this._config)
+    // Small is the anchor day and nothing else, however busy the next one looks: a
+    // four-row column that spent one of them on a heading would be showing one day badly
+    // rather than two days at all.
+    const flow = buildFlow(items, {
+      now,
+      ctx,
+      offsetDays: window.offsetDays,
+      spanDays: mode === 'small' ? 1 : window.spanDays,
+    })
     // The scale goes in as a factor, not as scaled constants: `layout.ts` prices rows in
     // design units and divides the box it was handed, so the budget shrinks as the type
     // grows without either side restating the other's numbers.
-    const { budgets } = geometryFor(mode, this.boxHeight, flow.todayEmpty, this.scaleFactor)
+    const { budgets } = geometryFor(mode, this.boxHeight, flow.anchorEmpty, this.scaleFactor)
     const columns = packFlow(flow.nodes, budgets, mode)
-    const date = widgetDate(now, ctx)
-    const emptyLabel = flow.todayDone ? NO_MORE_EVENTS_TODAY : NO_EVENTS_TODAY
+    // The anchor day, which is today until `day_offset` says otherwise. The block is that
+    // day's heading, which is why the flow gives it none of its own.
+    const date = widgetDate(flow.anchor, ctx)
+    const empty = emptyLabel(window.offsetDays, flow.anchorDone)
 
     // `ha-card` carries no `cw-pressable`: the rows do, one at a time. A widget holding a
     // list of things to open is not itself one thing to open, and the whole surface dipping
@@ -749,8 +765,8 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
               <div class="day">${date.day}</div>
             </div>
             ${
-              flow.todayEmpty
-                ? html`<div class="empty">${emptyLabel}</div>`
+              flow.anchorEmpty
+                ? html`<div class="empty">${empty}</div>`
                 : this._renderColumn(columns[0], ctx)
             }
           </div>

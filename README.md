@@ -41,6 +41,11 @@ your to-do lists joins the same flow at its own time. Empty days are not listed 
 they simply do not appear, and whatever is left of the day the card ran out of room in
 becomes `2 more events`.
 
+It does not have to be about today. **First day** and **Days shown**, in the editor's
+**Advanced** section, point a card at any day relative to this one, so three of them side
+by side can read yesterday, today and tomorrow. The whole card follows: the date at the
+top, the day that goes without a heading, and the line a quiet day shows.
+
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
@@ -210,6 +215,9 @@ are drawn beside the events; **To-do lists**, which lists those come from; **Clo
 format it prints times in; and **Scale**, how large to draw it. Leave all of them alone and
 you get every calendar, every to-do list, your Home Assistant time format, and 100%.
 
+Two more are folded into **Advanced**, and you can leave those alone too: **First day** and
+**Days shown**, which are below.
+
 The equivalent YAML, if you prefer it:
 
 ```yaml
@@ -221,6 +229,8 @@ show_reminders: true # optional; false leaves your to-do lists out entirely
 todo_entities: # optional; leave it out for every to-do list
   - todo.chores
 time_format: system # optional; system | 12 | 24
+day_offset: 0 # optional; 1 is tomorrow, -1 is yesterday
+days_to_show: 14 # optional; 1 pins the card to that one day
 scale: 100 # optional; 80–130, percent
 ```
 
@@ -230,9 +240,27 @@ scale: 100 # optional; 80–130, percent
 | `show_reminders` | `true`           | Whether reminders are drawn. `false` reads no to-do list at all. |
 | `todo_entities`  | every to-do list | Which `todo.*` entities to read. Omit it rather than empty.      |
 | `time_format`    | `system`         | `system` follows your profile; `12` or `24` overrides it.        |
+| `day_offset`     | `0`              | Which day the card starts on, counted from today. −31 to 31.     |
+| `days_to_show`   | `14`             | How many days it covers, counting the first. 1 to 31.            |
 | `scale`          | `100`            | Percent. Draws the whole widget larger or smaller. 80–130.       |
 
-`12`, `24` and `scale` are read whether or not you quote them.
+`12`, `24`, `scale`, `day_offset` and `days_to_show` are read whether or not you quote them.
+
+**On the day the card is about.** `day_offset` moves the whole card, not just the list:
+the date in the corner is the day it starts on, that day is the one drawn without a
+heading, and a quiet day says `No Events Tomorrow` rather than `No Events Today`. So a
+card for tomorrow is
+
+```yaml
+type: custom:cupertino-widgets-calendar
+day_offset: 1
+days_to_show: 1
+```
+
+and the same with `-1` is yesterday. A day already behind you is drawn in full, meetings
+and all, where today only ever shows what is still ahead of you: a finished day with
+nothing on it would be no card at all. In the small square, `days_to_show` is ignored and
+one day is drawn, which is what that size has always done.
 
 **On reminders.** A reminder is a to-do item with a **due date**: the date is what gives it a
 day to be drawn on, so an item without one never appears, and neither does one you have ticked

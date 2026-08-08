@@ -7,7 +7,18 @@
  * `timeZone`; omitting it means the browser's own zone.
  */
 
-import type { FrontendLocaleData } from '../../core/types/ha'
+import type { FrontendLocaleData, HomeAssistant } from '../../core/types/ha'
+
+/**
+ * The zone the user reads the dashboard in, or `undefined` for the browser's own.
+ *
+ * Home Assistant lets a profile follow the *server's* timezone instead, and "is that
+ * tomorrow" is a different question in each. Here rather than on the card because the card
+ * is no longer the only thing that has to ask: the editor's Advanced section names the day
+ * an offset lands on, and it has to land on the same day the card will draw.
+ */
+export const displayTimeZone = (hass: HomeAssistant | undefined): string | undefined =>
+  hass?.locale?.time_zone === 'server' ? hass.config?.time_zone : undefined
 
 /** `Intl.DateTimeFormat` construction is expensive and this runs per render. */
 const dayPartsCache = new Map<string, Intl.DateTimeFormat>()

@@ -175,10 +175,12 @@ describe('registryColor', () => {
 })
 
 describe('subscriptionWindow', () => {
-  it('covers the whole lookahead with a day to spare at each end', () => {
-    const { start, end } = subscriptionWindow(NOW, 14)
+  const fortnight = { offsetDays: 0, spanDays: 14 }
+
+  it('covers the whole span with a day to spare at each end', () => {
+    const { start, end } = subscriptionWindow(NOW, fortnight)
     expect(start.getTime()).toBeLessThan(NOW.getTime() - 3_600_000)
-    const lastDay = NOW.getTime() + 14 * 86_400_000
+    const lastDay = NOW.getTime() + 13 * 86_400_000
     expect(end.getTime()).toBeGreaterThan(lastDay + 86_400_000)
   })
 
@@ -188,24 +190,56 @@ describe('subscriptionWindow', () => {
    * hour, which is the whole reason there is a key at all.
    */
   it('keeps one key for a whole day and changes it across the boundary', () => {
-    const key = (iso: string): string => subscriptionWindow(new Date(iso), 14).key
+    const key = (iso: string): string => subscriptionWindow(new Date(iso), fortnight).key
     expect(key('2026-07-26T00:00:00Z')).toBe(key('2026-07-26T23:59:59Z'))
     expect(key('2026-07-26T23:59:59Z')).not.toBe(key('2026-07-27T00:00:01Z'))
   })
 
   /**
+   * The other half of the same rule, and the one a `day_offset` could break quietly. The
+   * key is all `reconcile` compares, so a card re-pointed at tomorrow while the day has
+   * not moved has to come out with a different one, or it keeps the subscriptions it had.
+   */
+  it('changes its key when the window moves rather than when the day does', () => {
+    const key = (window: { offsetDays: number; spanDays: number }): string =>
+      subscriptionWindow(NOW, window).key
+    expect(key({ offsetDays: 1, spanDays: 14 })).not.toBe(key(fortnight))
+    expect(key({ offsetDays: 0, spanDays: 1 })).not.toBe(key(fortnight))
+    expect(key({ offsetDays: -1, spanDays: 14 })).not.toBe(key({ offsetDays: 1, spanDays: 14 }))
+  })
+
+  it('moves the whole span with the offset, in both directions', () => {
+    const yesterday = subscriptionWindow(NOW, { offsetDays: -1, spanDays: 1 })
+    expect(dayNumber(yesterday.start, WARSAW)).toBeLessThanOrEqual(dayNumber(NOW, WARSAW) - 1)
+    // Exclusive: the end has to clear the last local midnight of yesterday, which is the
+    // start of today, and nothing beyond it is being asked for.
+    expect(dayNumber(yesterday.end, WARSAW)).toBeGreaterThanOrEqual(dayNumber(NOW, WARSAW))
+
+    const tomorrow = subscriptionWindow(NOW, { offsetDays: 1, spanDays: 1 })
+    expect(dayNumber(tomorrow.start, WARSAW)).toBeLessThanOrEqual(dayNumber(NOW, WARSAW) + 1)
+    expect(dayNumber(tomorrow.end, WARSAW)).toBeGreaterThanOrEqual(dayNumber(NOW, WARSAW) + 2)
+  })
+
+  /**
    * A fortnight either side of every zone: the window is computed without one, so the
    * padding is the only thing standing between a reader in Auckland and a missing day.
+   * Swept over the offsets too, since those move the same pad rather than adding to it.
    */
-  it('reaches local midnight today in every timezone', () => {
+  it('reaches local midnight at both ends in every timezone', () => {
     const broken: string[] = []
     for (const zone of [WARSAW, AUCKLAND, HONOLULU, 'UTC', 'Asia/Kathmandu']) {
-      for (let hour = 0; hour < 24; hour += 1) {
-        const now = new Date(Date.UTC(2026, 6, 26, hour))
-        const { start, end } = subscriptionWindow(now, 14)
-        const today = dayNumber(now, zone)
-        if (dayNumber(start, zone) > today) broken.push(`${zone} @${hour}h starts too late`)
-        if (dayNumber(end, zone) < today + 14) broken.push(`${zone} @${hour}h ends too early`)
+      for (const offsetDays of [-7, -1, 0, 1, 7]) {
+        for (let hour = 0; hour < 24; hour += 1) {
+          const now = new Date(Date.UTC(2026, 6, 26, hour))
+          const spanDays = 14
+          const { start, end } = subscriptionWindow(now, { offsetDays, spanDays })
+          const first = dayNumber(now, zone) + offsetDays
+          const where = `${zone} @${hour}h ${offsetDays >= 0 ? '+' : ''}${offsetDays}d`
+          // The end is exclusive, so it has to reach the local midnight AFTER the last day
+          // drawn: landing inside that day would cut the afternoon off it.
+          if (dayNumber(start, zone) > first) broken.push(`${where} starts too late`)
+          if (dayNumber(end, zone) < first + spanDays) broken.push(`${where} ends too early`)
+        }
       }
     }
     expect(broken).toEqual([])

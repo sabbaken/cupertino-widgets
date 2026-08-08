@@ -450,8 +450,8 @@ describe('the tail indicator', () => {
     for (const flow of flows) {
       for (let height = 100; height <= 800; height += 2) {
         for (const mode of ['small', 'medium'] as const) {
-          for (const todayEmpty of [false, true]) {
-            const { budgets } = geometryFor(mode, height, todayEmpty)
+          for (const anchorEmpty of [false, true]) {
+            const { budgets } = geometryFor(mode, height, anchorEmpty)
             const columns = packFlow(flow, budgets, mode)
             const rows = columns.flatMap(column => column.rows)
             const indicator = rows.some(r => r.node.type === 'more')

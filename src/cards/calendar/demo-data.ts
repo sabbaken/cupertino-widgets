@@ -337,6 +337,45 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
     ]
   },
 
+  /**
+   * A day that is already behind us, which is what `day_offset: -1` is for.
+   *
+   * Everything on yesterday is over, and that is the whole point of the fixture: the clock
+   * retires a finished row on TODAY and leaves a past day alone, so this is where those two
+   * halves of §2 can be watched disagreeing. Today is here as well, one meeting spent and
+   * one still ahead, so the same card can be dragged from -1 to 0 and back and show
+   * something different each time.
+   */
+  'past-day': now => {
+    const base = soon(now)
+    return [
+      {
+        kind: 'event',
+        title: 'Sprint planning',
+        start: on(now, -1, 9),
+        end: on(now, -1, 10, 30),
+        color: WORK,
+      },
+      {
+        kind: 'event',
+        title: 'Physio',
+        location: 'Gdańska 45, Warsawa',
+        start: on(now, -1, 17, 30),
+        end: on(now, -1, 18, 30),
+        color: SPORT,
+      },
+      {
+        kind: 'event',
+        title: 'Standup',
+        start: earlier(now, 3),
+        end: earlier(now, 2),
+        color: WORK,
+      },
+      { kind: 'event', title: 'Design review', start: base, end: after(base, 1), color: WORK },
+      ...laterDays(now),
+    ]
+  },
+
   /** Tomorrow is empty, so it is skipped and the next heading is a date, not `TOMORROW`. */
   'skip-empty-day': now => {
     const base = soon(now)

@@ -1,8 +1,20 @@
+import { mdiTune } from '@mdi/js'
+
 import { CupertinoCardEditor } from '../../core/card-editor'
 import { defineElement } from '../../core/register'
 import type { HaFormSchema } from '../../core/types/ha'
 import type { CalendarCardConfig } from './calendar-card'
-import { TIME_FORMAT_OPTIONS } from './datetime'
+import { TIME_FORMAT_OPTIONS, displayTimeZone, timePreferences } from './datetime'
+import {
+  DEFAULT_DAY_SPAN,
+  MAX_DAY_OFFSET,
+  MAX_DAY_SPAN,
+  MIN_DAY_OFFSET,
+  MIN_DAY_SPAN,
+  dayWindow,
+  type DayWindow,
+} from './flow'
+import { windowSummary, type FormatContext } from './format'
 import { remindersEnabled } from './todo-source'
 
 export const CALENDAR_EDITOR_TAG = 'cupertino-widgets-calendar-editor'
@@ -20,7 +32,7 @@ const TODO_LISTS_KEY = 'panel.todo'
 /**
  * Four rows of the card's own, and it took a detour to get here. (A fifth, **Scale**,
  * arrives from `CupertinoCardEditor`, since it belongs to every card in the library, not to
- * this one.)
+ * this one, and two more are folded away in **Advanced**: see `advancedSection`.)
  *
  * There was a `size` row as well: two tiles, Small and Medium, each with a line of copy.
  * It looked like the more helpful editor and was the less helpful one. The sections layout
@@ -73,6 +85,71 @@ const CLOCK_ROW: HaFormSchema = {
   },
 }
 
+/* Boxes, not sliders. `ha-selector-number` draws a slider the moment it has both a `min`
+   and a `max` unless `mode` says otherwise, and a slider is the wrong shape for this: 63
+   positions to drag through, when every value anybody wants is within three of zero and
+   is quicker typed. `min`/`max` still earn their place on a box, as the steppers' bounds
+   and as the range the card itself clamps to (`dayWindow`), so the control can express
+   everything the card accepts and nothing it does not. */
+const OFFSET_ROW: HaFormSchema = {
+  name: 'day_offset',
+  selector: {
+    number: {
+      min: MIN_DAY_OFFSET,
+      max: MAX_DAY_OFFSET,
+      step: 1,
+      mode: 'box',
+      unit_of_measurement: 'days',
+    },
+  },
+}
+
+const SPAN_ROW: HaFormSchema = {
+  name: 'days_to_show',
+  selector: {
+    number: {
+      min: MIN_DAY_SPAN,
+      max: MAX_DAY_SPAN,
+      step: 1,
+      mode: 'box',
+      unit_of_measurement: 'days',
+    },
+  },
+}
+
+/**
+ * The two rows above, folded away behind a disclosure triangle.
+ *
+ * A section rather than two more rows in the list, because of who is looking: the four
+ * rows above it are the questions every user of this card has to answer, and these two are
+ * a question almost nobody has. Left in the open they would read as a fifth and sixth
+ * thing to decide before the card works, which is what an Advanced section exists to say
+ * they are not. `flatten` keeps the config flat behind it; see `HaFormExpandable`.
+ *
+ * It arrives **open** for a card that is actually pointed somewhere, which is the one thing
+ * a folded section gets wrong: a user coming back to a card pinned to tomorrow would
+ * otherwise find nothing in the dialog that says so, and the only visible sign would be a
+ * date block disagreeing with the calendar behind it.
+ *
+ * On the window rather than on the keys being present, and the difference is the whole
+ * reason it is written this way: `defaults()` writes both keys through on the first edit
+ * anywhere in the form, so a test for presence would have the section spring open the
+ * moment somebody changed the clock. Reading the window instead means the flag only ever
+ * changes when there is something in there to see.
+ */
+const advancedSection = (config: CalendarCardConfig | undefined): HaFormSchema => {
+  const { offsetDays, spanDays } = dayWindow(config)
+  return {
+    name: 'advanced',
+    type: 'expandable',
+    flatten: true,
+    title: 'Advanced',
+    iconPath: mdiTune,
+    expanded: offsetDays !== 0 || spanDays !== DEFAULT_DAY_SPAN,
+    schema: [OFFSET_ROW, SPAN_ROW],
+  }
+}
+
 /**
  * The calendar card's visual editor.
  *
@@ -93,18 +170,44 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
    * anywhere else in the form, quietly emptying the picker it was greying out.
    */
   protected override fields(): readonly HaFormSchema[] {
-    return remindersEnabled(this._config?.show_reminders)
+    const rows = remindersEnabled(this._config?.show_reminders)
       ? [CALENDARS_ROW, REMINDERS_ROW, TODO_LISTS_ROW, CLOCK_ROW]
       : [CALENDARS_ROW, REMINDERS_ROW, CLOCK_ROW]
+    return [...rows, advancedSection(this._config)]
   }
 
   /**
    * What a config that says nothing actually does, shown rather than left blank: an unset
-   * radio group reads as broken rather than as a default, and a switch parked at off would
-   * be saying the opposite of what the card is doing.
+   * radio group reads as broken rather than as a default, a switch parked at off would be
+   * saying the opposite of what the card is doing, and an empty number box is a question
+   * about the default it cannot answer. The first edit writes them through into the
+   * config, which is what Home Assistant's own card editors do with theirs.
    */
   protected override defaults(): Partial<CalendarCardConfig> {
-    return { time_format: 'system', show_reminders: true }
+    const { offsetDays, spanDays } = dayWindow(undefined)
+    return {
+      time_format: 'system',
+      show_reminders: true,
+      day_offset: offsetDays,
+      days_to_show: spanDays,
+    }
+  }
+
+  /**
+   * The window as the card will read it, and the clock to describe it against.
+   *
+   * Both come from the same two functions the card itself uses, which is the point: an
+   * Advanced section that worked its own defaults or its own timezone out would be a
+   * second opinion about what the card is going to draw, and the first day it disagreed
+   * would be the day somebody stopped trusting the sentence under the box.
+   */
+  private get _window(): DayWindow {
+    return dayWindow(this._config)
+  }
+
+  private get _ctx(): FormatContext {
+    const { locale, hour12 } = timePreferences(this.hass?.locale, this._config?.time_format)
+    return { locale, timeZone: displayTimeZone(this.hass), hour12 }
   }
 
   /** The default branches hand the shared rows back to the base: see `CupertinoCardEditor`. */
@@ -118,6 +221,10 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
         return this.hass?.localize(TODO_LISTS_KEY) || 'To-do lists'
       case 'time_format':
         return 'Clock'
+      case 'day_offset':
+        return 'First day'
+      case 'days_to_show':
+        return 'Days shown'
       default:
         return super.label(schema)
     }
@@ -139,6 +246,14 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
         // operating system's, and the profile's own detection cannot see, for instance,
         // macOS's 24-hour switch, which is exactly when the other two earn their place.
         return 'System follows your Home Assistant time format. Pick one to override it.'
+      case 'day_offset':
+        // The units, in the only place they can be stated: the box's own suffix says
+        // `days`, which leaves "days from when, and which way" to this line.
+        return 'Counted from today: 1 is tomorrow, -1 is yesterday, 0 stays on today.'
+      case 'days_to_show':
+        // The pair, read back as a sentence. This is what makes two numbers a feature
+        // rather than a puzzle: see `windowSummary`.
+        return windowSummary(this._window, new Date(), this._ctx)
       default:
         return super.helper(schema)
     }

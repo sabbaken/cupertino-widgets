@@ -152,6 +152,7 @@ const SCENARIO_LABELS: Record<string, string> = {
   reminders: 'Reminders and events',
   'all-day': 'An all-day event',
   'all-day-busy': 'All-day, on a busy day',
+  'past-day': 'A day already gone',
   'skip-empty-day': 'Tomorrow is empty',
   empty: 'Nothing at all',
 }
@@ -184,9 +185,10 @@ const calendar: Widget = {
   ],
 
   /**
-   * Which calendars the card follows is not a control on this page: the card's own editor
-   * asks for it, and the Advanced section runs that editor. Two pickers for one key is a
-   * question a visitor should not have to answer twice.
+   * Which calendars the card follows is not a control on this page, and neither is which
+   * days: the card's own editor asks for both, and the Advanced section runs that editor.
+   * Two controls for one key is a question a visitor should not have to answer twice.
+   * `day_offset` against the `A day already gone` fixture is the pair worth trying there.
    */
   toConfig(args) {
     const entities = readList(args, 'entities')

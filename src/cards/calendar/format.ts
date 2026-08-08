@@ -13,7 +13,8 @@
  * carries as a flag.
  */
 
-import { dayNumber } from './datetime'
+import { dayNumber, dayStart } from './datetime'
+import type { DayWindow } from './flow'
 
 export interface TimeToken {
   /** The digits, e.g. `6` or `6:15`. */
@@ -134,17 +135,22 @@ export const itemTime = (
 /**
  * A section heading inside the flow: `TOMORROW`, else `SUNDAY, 26 JUL`.
  *
- * Never called for today: today's section is implicitly headed by the widget's own
- * date block.
+ * Never called for the anchor day, whose section is implicitly headed by the widget's own
+ * date block. That used to mean "never called for today", and it stopped meaning it when
+ * `day_offset` arrived: a card anchored on yesterday has today in the flow under it, and
+ * `TODAY` is what that section wants to be called.
+ *
+ * The relative words stop at one day either side. `numeric: 'auto'` is what produces them
+ * at all, and going wider would produce them unevenly: `format(2, 'day')` is `in 2 days`
+ * in English, a duration where a heading wants a date, and `übermorgen` in German, a word
+ * that is exactly right. Three days is the set every locale agrees on.
  */
 export const sectionHeading = (date: Date, today: Date, ctx: FormatContext): string => {
   const { locale, timeZone } = ctx
   const upper = (value: string): string => value.toLocaleUpperCase(locale)
 
-  if (dayNumber(date, timeZone) - dayNumber(today, timeZone) === 1) {
-    // Localised for free, and "tomorrow" rather than "in 1 day" thanks to `auto`.
-    return upper(relativeDay(locale).format(1, 'day'))
-  }
+  const away = dayNumber(date, timeZone) - dayNumber(today, timeZone)
+  if (Math.abs(away) <= 1) return upper(relativeDay(locale).format(away, 'day'))
 
   const weekday = formatter(
     `weekday|${locale}|${timeZone}`,
@@ -174,17 +180,87 @@ export const sectionHeading = (date: Date, today: Date, ctx: FormatContext): str
 export const moreLabel = (count: number): string =>
   `${count} more ${count === 1 ? 'event' : 'events'}`
 
-/** The always-present date block in the widget's top-left corner. */
-export const widgetDate = (today: Date, ctx: FormatContext): { weekday: string; day: string } => {
+/**
+ * The line a day with nothing on it shows instead of a flow.
+ *
+ * English-only, like `moreLabel`: Home Assistant has no string for any of these and the
+ * widget being copied says exactly the first two. Four rather than two, because the day
+ * the card is anchored on need not be today any more, and `No Events Today` under a date
+ * block reading tomorrow would be the card contradicting itself in two lines.
+ *
+ * `done` only ever arrives true for today, and the distinction is only ever worth drawing
+ * there: yesterday is finished by definition, so `No More Events Yesterday` would be
+ * saying nothing. Anything further out than a day either way gets the bare line, the date
+ * block above it having already named the day better than a relative word could.
+ */
+export const emptyLabel = (offsetFromToday: number, done: boolean): string => {
+  if (offsetFromToday === 0) return done ? 'No More Events Today' : 'No Events Today'
+  if (offsetFromToday === 1) return 'No Events Tomorrow'
+  if (offsetFromToday === -1) return 'No Events Yesterday'
+  return 'No Events'
+}
+
+/**
+ * The day an offset lands on, named: `tomorrow`, or `Mon, 10 Aug` once the words run out.
+ *
+ * The same three relative words `sectionHeading` uses, and for the same reason, in lower
+ * case because this one is read inside a sentence rather than as a heading.
+ */
+const dayPhrase = (offsetFromToday: number, now: Date, ctx: FormatContext): string => {
+  const { locale, timeZone } = ctx
+  if (Math.abs(offsetFromToday) <= 1) return relativeDay(locale).format(offsetFromToday, 'day')
+
+  return formatter(
+    `shortdate|${locale}|${timeZone}`,
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        ...zone(timeZone),
+      }),
+  ).format(dayStart(dayNumber(now, timeZone) + offsetFromToday, timeZone))
+}
+
+/**
+ * What a window comes to, in a sentence: the editor's helper line under **Days shown**.
+ *
+ * The two numbers are exact and say nothing; this is what makes them legible. `1` and `1`
+ * is a card about tomorrow, and a user who has just typed them should be able to read that
+ * back without doing the arithmetic in their head, which is the whole reason the pair is
+ * two plain numbers rather than a dropdown of presets: the presets would have to stop
+ * somewhere, and a sentence does not.
+ *
+ * English scaffolding around a localised day, the same mongrel `moreLabel` is: there is no
+ * translation layer here yet, and the day is the half of the sentence that carries it.
+ */
+export const windowSummary = (window: DayWindow, now: Date, ctx: FormatContext): string => {
+  const { offsetDays, spanDays } = window
+  const day = dayPhrase(offsetDays, now, ctx)
+  const first = day.charAt(0).toLocaleUpperCase(ctx.locale) + day.slice(1)
+
+  if (spanDays <= 1) return `${first} only.`
+  if (spanDays === 2) return `${first} and the day after.`
+  return `${first} and the ${spanDays - 1} days after it.`
+}
+
+/**
+ * The always-present date block in the widget's top-left corner.
+ *
+ * Whatever day the card is anchored on rather than today, since those parted company when
+ * `day_offset` arrived: the block is the anchor day's heading (§3), which is why that day
+ * gets none of its own in the flow.
+ */
+export const widgetDate = (anchor: Date, ctx: FormatContext): { weekday: string; day: string } => {
   const { locale, timeZone } = ctx
   const weekday = formatter(
     `weekday|${locale}|${timeZone}`,
     () => new Intl.DateTimeFormat(locale, { weekday: 'long', ...zone(timeZone) }),
-  ).format(today)
+  ).format(anchor)
   const day = formatter(
     `day|${locale}|${timeZone}`,
     () => new Intl.DateTimeFormat(locale, { day: 'numeric', ...zone(timeZone) }),
-  ).format(today)
+  ).format(anchor)
 
   return { weekday: weekday.toLocaleUpperCase(locale), day }
 }

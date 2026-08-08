@@ -395,7 +395,7 @@ export interface Geometry {
 export const geometryFor = (
   mode: LayoutMode,
   height: number,
-  todayEmpty: boolean,
+  anchorEmpty: boolean,
   scale = 1,
 ): Geometry => {
   const content = Math.max(0, (height - 2 * BORDER) / scale - 2 * INSET)
@@ -403,7 +403,7 @@ export const geometryFor = (
   const below = rowsIn(content - DATE_BLOCK)
 
   if (mode === 'small') return { budgets: [below] }
-  // Nothing left today means no left column to fill: the flow starts on the right, under
-  // the `No (More) Events Today` line.
-  return { budgets: [todayEmpty ? 0 : below, beside] }
+  // Nothing left on the day the card is anchored on means no left column to fill: the flow
+  // starts on the right, under the `No (More) Events` line.
+  return { budgets: [anchorEmpty ? 0 : below, beside] }
 }

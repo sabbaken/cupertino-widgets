@@ -258,23 +258,53 @@ export interface BooleanSelector {
 export type Selector =
   EntitySelector | SelectSelector | NumberSelector | IconSelector | TextSelector | BooleanSelector
 
-/**
- * One row of an `ha-form`.
- *
- * `ha-form` also takes nodes carrying a `type` instead of a `selector` (`grid`,
- * `expandable` and nine others, dispatched to `ha-form-${type}` and lazily imported when
- * it first sees one), but a selector node is the only shape our editors need. The battery
- * card's accordions are `ha-expansion-panel`s of its own rather than `expandable` nodes,
- * because a panel it owns is one it can hang a drag handle and a delete button off;
- * `docs/ha-api-notes.md` records how the `expandable` node nests its data, for whoever
- * needs a group of rows and none of that chrome.
- */
-export interface HaFormSchema {
+/** One row of an `ha-form`: a label, and a control chosen by the selector. */
+export interface HaFormRow {
   name: string
   selector: Selector
   /** Purely presentational here: `ha-form` marks the field, it does not enforce it. */
   required?: boolean
 }
+
+/**
+ * A group of rows behind a disclosure triangle: `ha-form-expandable`.
+ *
+ * The one node with a `type` rather than a `selector` that this library uses. (`ha-form`
+ * knows eleven, dispatched to `ha-form-${type}` and lazily imported when it first sees
+ * one.) The battery card's accordions are `ha-expansion-panel`s of its own instead,
+ * because a panel it owns is one it can hang a drag handle and a delete button off; this
+ * node cannot, and a group of plain rows does not need to.
+ *
+ * **`flatten` is `true` and not optional**, which is a decision rather than a formality.
+ * `ha-form` reads a named node's value as `data[name]` and merges its answer back under
+ * that key, so a group without it would nest its rows in a config object of their own:
+ * `advanced: { day_offset: 1 }` in the user's YAML, for a panel that exists to fold two
+ * rows out of sight. `flatten` opts out of both halves, which is what Home Assistant's own
+ * badge and heading editors do with their **Content** panel, and it is what lets
+ * `formData` and `applyFormData` go on seeing one flat config.
+ *
+ * `title` wins over `computeLabel`; passing neither leaves the summary the bare `name`.
+ */
+export interface HaFormExpandable {
+  name: string
+  type: 'expandable'
+  flatten: true
+  title?: string
+  /** An `@mdi/js` path, drawn left of the title. `icon` takes an `mdi:` name instead. */
+  iconPath?: string
+  /** Open on the first render. Off means the panel arrives folded. */
+  expanded?: boolean
+  schema: readonly HaFormSchema[]
+}
+
+/**
+ * One node of an `ha-form` schema: a row, or a group of them.
+ *
+ * A union rather than one shape with optional keys, because the two are read by different
+ * code paths in `ha-form` itself and nothing sensible has both. `'selector' in node` is
+ * the narrowing every reader uses.
+ */
+export type HaFormSchema = HaFormRow | HaFormExpandable
 
 /**
  * The element a card's `static getConfigElement()` hands back.

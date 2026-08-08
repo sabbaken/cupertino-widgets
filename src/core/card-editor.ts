@@ -39,6 +39,19 @@ const isMultiple = (selector: Selector): boolean => {
 }
 
 /**
+ * Every field a schema owns, groups walked into.
+ *
+ * One list rather than one per level, because a group in this library is `flatten: true`
+ * (see `HaFormExpandable`): its rows read and write the same flat config the rows beside
+ * it do, so the only thing the nesting changes is where they are drawn. A version of this
+ * that stopped at the group reported the group's own name as the field, and
+ * `applyFormData` then wrote none of the rows inside it: an Advanced section that looked
+ * right and saved nothing.
+ */
+export const fieldNames = (schema: readonly HaFormSchema[]): string[] =>
+  schema.flatMap(node => ('selector' in node ? [node.name] : fieldNames(node.schema)))
+
+/**
  * What `ha-form` is handed: the config, with the defaults showing through where it is
  * silent, and a scalar widened to a list wherever the schema says `multiple`.
  *
@@ -59,15 +72,25 @@ export const formData = (
 ): Record<string, unknown> => {
   const data: Record<string, unknown> = { ...defaults, ...config }
 
-  for (const node of schema) {
-    const multiple = isMultiple(node.selector)
-    const value = data[node.name]
-    // `isBlank`, not `!== undefined`: a bare `entities:` in the YAML parses to `null`,
-    // and wrapping that would show the picker one empty row it cannot fill and then
-    // write `[null]` back out.
-    if (multiple && !isBlank(value) && !Array.isArray(value)) data[node.name] = [value]
+  const widen = (nodes: readonly HaFormSchema[]): void => {
+    for (const node of nodes) {
+      // A group holds rows, not a value of its own, and its rows are the ones that might
+      // need widening. Walked rather than skipped: a `multiple` picker inside an Advanced
+      // section is one hand-written scalar away from the same throw.
+      if (!('selector' in node)) {
+        widen(node.schema)
+        continue
+      }
+      const multiple = isMultiple(node.selector)
+      const value = data[node.name]
+      // `isBlank`, not `!== undefined`: a bare `entities:` in the YAML parses to `null`,
+      // and wrapping that would show the picker one empty row it cannot fill and then
+      // write `[null]` back out.
+      if (multiple && !isBlank(value) && !Array.isArray(value)) data[node.name] = [value]
+    }
   }
 
+  widen(schema)
   return data
 }
 
@@ -260,8 +283,7 @@ export abstract class CupertinoCardEditor<C extends LovelaceCardConfig = Lovelac
     event.stopPropagation()
     if (!this._config) return
 
-    const fields = this.schema().map(node => node.name)
-    this.emitConfig(this.fromForm(this._config, event.detail.value, fields))
+    this.emitConfig(this.fromForm(this._config, event.detail.value, fieldNames(this.schema())))
   }
 
   /**

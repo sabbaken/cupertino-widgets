@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import type { FrontendLocaleData } from '../../core/types/ha'
 import { timePreferences } from './datetime'
-import { TIME_DASH, itemTime, moreLabel, widgetDate, type FormatContext } from './format'
+import {
+  TIME_DASH,
+  emptyLabel,
+  itemTime,
+  moreLabel,
+  sectionHeading,
+  widgetDate,
+  windowSummary,
+  type FormatContext,
+} from './format'
 
 const ctx: FormatContext = { locale: 'en-GB', timeZone: 'Europe/Warsaw', hour12: true }
 const ctx24: FormatContext = { ...ctx, hour12: false }
@@ -110,6 +119,91 @@ describe('the tail indicator', () => {
 describe('the widget’s own date block', () => {
   it('is the weekday in capitals and the bare day number', () => {
     expect(widgetDate(at('12:00'), ctx)).toEqual({ weekday: 'FRIDAY', day: '24' })
+  })
+
+  /** It prints the anchor day, which is only today until `day_offset` says otherwise. */
+  it('follows the day it is handed rather than assuming today', () => {
+    expect(widgetDate(new Date('2026-07-25T00:00:00+02:00'), ctx)).toEqual({
+      weekday: 'SATURDAY',
+      day: '25',
+    })
+  })
+})
+
+describe('section headings', () => {
+  const today = at('12:00')
+  const day = (offset: number): Date => new Date(today.getTime() + offset * 86_400_000)
+
+  it('names the three days around today with words, and the rest with a date', () => {
+    expect(sectionHeading(day(1), today, ctx)).toBe('TOMORROW')
+    expect(sectionHeading(day(2), today, ctx)).toBe('SUNDAY, 26 JUL')
+  })
+
+  /**
+   * Neither of these could arise before `day_offset`: today and the days behind it were
+   * never in the flow at all. A window that starts on yesterday puts today under a heading,
+   * and `FRIDAY, 24 JUL` for the day the reader is standing in would be a strange way to
+   * say so.
+   */
+  it('says TODAY and YESTERDAY for a window that starts before today', () => {
+    expect(sectionHeading(today, today, ctx)).toBe('TODAY')
+    expect(sectionHeading(day(-1), today, ctx)).toBe('YESTERDAY')
+    expect(sectionHeading(day(-2), today, ctx)).toBe('WEDNESDAY, 22 JUL')
+  })
+
+  it('says them in the card’s own language', () => {
+    expect(sectionHeading(day(-1), today, { ...ctx, locale: 'pl' })).toBe('WCZORAJ')
+  })
+})
+
+describe('the empty line', () => {
+  it('tells a free day from a finished one, on today alone', () => {
+    expect(emptyLabel(0, false)).toBe('No Events Today')
+    expect(emptyLabel(0, true)).toBe('No More Events Today')
+  })
+
+  /**
+   * The date block above the line says which day it is, and the line has to agree with it:
+   * `No Events Today` under a block reading tomorrow is the card contradicting itself.
+   */
+  it('names the day either side of today, and stops there', () => {
+    expect(emptyLabel(1, false)).toBe('No Events Tomorrow')
+    expect(emptyLabel(-1, false)).toBe('No Events Yesterday')
+    expect(emptyLabel(3, false)).toBe('No Events')
+    expect(emptyLabel(-3, false)).toBe('No Events')
+  })
+})
+
+/**
+ * The editor's helper line: two numbers read back as a sentence.
+ *
+ * It is what makes `day_offset` and `days_to_show` legible without a preset dropdown, so
+ * it is worth pinning that it reads as English at each of the shapes it has to cover.
+ */
+describe('the window summary', () => {
+  const now = at('12:00')
+  const summary = (offsetDays: number, spanDays: number): string =>
+    windowSummary({ offsetDays, spanDays }, now, ctx)
+
+  it('names a single day with a word where there is one', () => {
+    expect(summary(0, 1)).toBe('Today only.')
+    expect(summary(1, 1)).toBe('Tomorrow only.')
+    expect(summary(-1, 1)).toBe('Yesterday only.')
+  })
+
+  /** Punctuated by the locale, not by us: en-US puts a comma in where en-GB does not. */
+  it('falls back to the date once the words run out', () => {
+    expect(summary(3, 1)).toBe('Mon 27 Jul only.')
+    expect(summary(-3, 1)).toBe('Tue 21 Jul only.')
+    expect(windowSummary({ offsetDays: 3, spanDays: 1 }, now, { ...ctx, locale: 'en-US' })).toBe(
+      'Mon, Jul 27 only.',
+    )
+  })
+
+  it('counts the days after the first rather than restating the span', () => {
+    expect(summary(0, 2)).toBe('Today and the day after.')
+    expect(summary(0, 14)).toBe('Today and the 13 days after it.')
+    expect(summary(1, 7)).toBe('Tomorrow and the 6 days after it.')
   })
 })
 

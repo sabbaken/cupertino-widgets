@@ -16,9 +16,10 @@ import { CalendarFeed, subscriptionWindow, type CalendarPush } from './source'
 
 const WARSAW = 'Europe/Warsaw'
 const NOW = new Date('2026-07-26T12:00:00+02:00')
-const WINDOW = subscriptionWindow(NOW, 14)
+const FORTNIGHT = { offsetDays: 0, spanDays: 14 }
+const WINDOW = subscriptionWindow(NOW, FORTNIGHT)
 /** A day later, so the window key moves: the midnight-rollover case. */
-const NEXT_WINDOW = subscriptionWindow(new Date('2026-07-27T12:00:00+02:00'), 14)
+const NEXT_WINDOW = subscriptionWindow(new Date('2026-07-27T12:00:00+02:00'), FORTNIGHT)
 
 const timed = (summary: string): Record<string, unknown> => ({
   summary,

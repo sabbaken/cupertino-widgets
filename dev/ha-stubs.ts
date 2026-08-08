@@ -27,6 +27,7 @@ import {
 import type {
   EntityFilter,
   EntitySelector,
+  HaFormExpandable,
   HaFormSchema,
   HomeAssistant,
   NumberSelector,
@@ -166,6 +167,29 @@ const HA_FORM_CSS = `
   .text {
     width: 100%;
     box-sizing: border-box;
+  }
+
+  /* A group of rows: \`ha-form-expandable\`, which is an \`ha-expansion-panel\` there and a
+     \`<details>\` here. Same disclosure, none of the chrome. */
+  details {
+    margin: 0 0 16px;
+    padding: 12px;
+    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+    border-radius: 8px;
+  }
+
+  summary {
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  details[open] summary {
+    padding-bottom: 12px;
+  }
+
+  details fieldset:last-of-type {
+    margin-bottom: 0;
   }
 `
 
@@ -826,7 +850,29 @@ class HaFormStub extends HTMLElement {
     if (focused) this._root.getElementById(focused)?.focus()
   }
 
+  /**
+   * A group of rows behind a disclosure triangle, standing in for `ha-form-expandable`.
+   *
+   * The rows inside read and write the same flat data the ones outside do, which is the
+   * whole of what `flatten: true` means and the only part of the real one worth copying:
+   * the schema type only allows a flattened group, so there is no nesting to reproduce.
+   * `open` follows `expanded`, so an editor that opens the panel when the config already
+   * has something in it can be seen doing it here.
+   */
+  private _renderGroup(node: HaFormExpandable): HTMLElement {
+    const group = document.createElement('details')
+    group.open = node.expanded === true
+
+    const summary = document.createElement('summary')
+    summary.textContent = node.title ?? this._computeLabel?.(node, this._data) ?? node.name
+
+    group.append(summary, ...node.schema.map(child => this._renderRow(child)))
+    return group
+  }
+
   private _renderRow(node: HaFormSchema): HTMLElement {
+    if (!('selector' in node)) return this._renderGroup(node)
+
     const row = document.createElement('fieldset')
     const value = this._data[node.name]
 

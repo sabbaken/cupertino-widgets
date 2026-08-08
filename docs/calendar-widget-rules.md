@@ -6,8 +6,12 @@ section, and `src/cards/calendar/*.test.ts` pins the worked examples at the bott
 
 Two sizes, matching the two Apple offers on a home screen:
 
-- **small**: today, and nothing else, ever
-- **medium**: two columns of one continuous flow: today plus what comes after it
+- **small**: the anchor day, and nothing else, ever
+- **medium**: two columns of one continuous flow: the anchor day plus what comes after it
+
+The **anchor day** is today, and is today on every card that has not been told otherwise.
+§2 has the option that moves it and what moves with it; everywhere else in this document,
+read "today" as "the anchor day" unless the sentence is about the clock.
 
 ---
 
@@ -198,9 +202,40 @@ is most of a real list, so this is the rule that keeps a shopping list from arri
 wall of undated rows. A due date with no time on it is a day (§1); a due time is a moment
 and prints like one.
 
+### Which days
+
+The card is about **today and the fortnight after it**, and two options move that window.
+Both live in the editor's **Advanced** section, folded away, because almost nobody needs
+either:
+
+| Option         | Default | Means                                                     |
+| -------------- | ------- | --------------------------------------------------------- |
+| `day_offset`   | `0`     | Days from today to the first day drawn. `-1` is yesterday |
+| `days_to_show` | `14`    | How many days are drawn, counting the first               |
+
+The first day drawn is the **anchor day**, and three things follow it rather than the
+clock: the date block prints it (§3), it is the day that gets no heading (§3), and the
+empty line names it (§4). `day_offset: 1, days_to_show: 1` is therefore a card that is
+about tomorrow in every one of those places, which is the arrangement the option exists
+for: three of these side by side, reading yesterday, today and tomorrow.
+
+Both are clamped to ±31 days and 1–31 days, which is the range the editor's two boxes
+offer, so hand-written YAML has nothing to reach for that the dialog cannot show. The
+small size ignores `days_to_show` and draws one day, exactly as it has always ignored what
+tomorrow holds (§4).
+
+**A day in the past is drawn whole.** Rule 2 below retires a row the clock has overtaken,
+and applying it to a day already gone would empty the card: everything on yesterday is
+over. So it is asked of **today alone**, which is the one day where "what is left" is a
+different question from "what happened". A window of `-1` for two days therefore shows the
+whole of yesterday and only the rest of today, and those are the two readings each of
+those days wants.
+
 ### Order
 
-1. Today and forwards only: a fortnight is more than enough.
+1. The window above, and nothing outside it. Something with a duration that began before
+   the window is filed under the first day of it, so a trip that started on Monday is what
+   Wednesday is about too.
 2. Anything the clock has overtaken is dropped, and a meeting is overtaken **halfway
    through it**: at ten past two you are already sitting in the two-to-three, so the row
    worth having is the one after it. Holding it to 3PM is more literal, and it is what this
@@ -226,41 +261,59 @@ different answer in each.
 ## 3. Headings
 
 **The widget's own date**, top left, always: the weekday in capitals in the accent
-red, and the day number, large. Always today, whether or not today has anything in it.
+red, and the day number, large. The **anchor day**, whether or not it has anything in it,
+which is today on a card that has not been sent anywhere else (§2). It stays red wherever
+it is pointed: red is the card's, not today's.
 
 **Section headings**, in the flow, medium only:
 
 | Section                     | Heading                           |
 | --------------------------- | --------------------------------- |
-| today                       | none, the date block already said |
+| the anchor day              | none, the date block already said |
 | exactly one day after today | `TOMORROW`                        |
-| anything later              | `SUNDAY, 26 JUL`                  |
+| today                       | `TODAY`                           |
+| exactly one day before      | `YESTERDAY`                       |
+| anything else               | `SUNDAY, 26 JUL`                  |
 
-`TOMORROW` means literally tomorrow. If tomorrow is empty and the next section is the
-day after, that section gets a date. Headings are small and grey, never a calendar
-colour, and follow the locale's own day/month order (`JUL 26` in en-US).
+The three words are relative to **today**, not to the anchor day, and the top row wins:
+a card anchored on tomorrow heads no section `TOMORROW`, because that section is the one
+the date block is already speaking for. `TODAY` and `YESTERDAY` can only arise on a card
+whose window starts before today, which is what `day_offset: -1` does. Two days out in
+either direction is a date: `in 2 days` is a duration where a heading wants a day, and the
+word only exists in some languages anyway.
+
+Headings are small and grey, never a calendar colour, and follow the locale's own
+day/month order (`JUL 26` in en-US); the three words are the locale's too.
 
 ## 4. What each size shows
 
-**Small**: today. If today is empty: the empty line, below. Other days never appear, not
-even when today is empty and tomorrow is full.
+**Small**: the anchor day. If it is empty: the empty line, below. Other days never appear,
+not even when it is empty and the next one is full, and not even when `days_to_show` asks
+for more.
 
 **Medium**: two columns holding one vertical flow that spills from the left column
 into the right:
 
 - left: the date block, and the start of the flow beneath it;
-- right: the same flow continuing, the rest of today first, **with no heading**, then
-  the next day's heading and its rows;
-- if today is empty, the left column reads the empty line under the date and the flow
-  starts at the top of the right column.
+- right: the same flow continuing, the rest of the anchor day first, **with no heading**,
+  then the next day's heading and its rows;
+- if the anchor day is empty, the left column reads the empty line under the date and the
+  flow starts at the top of the right column.
 
-**The empty line** has two forms, and which one is shown is the difference between a
-free day and a finished one:
+**The empty line** says which day is empty, and on today it says which kind of empty:
 
-| Today                                 | Line                   |
-| ------------------------------------- | ---------------------- |
-| nothing on it, and nothing was        | `No Events Today`      |
-| had something, all of it already over | `No More Events Today` |
+| The anchor day                               | Line                   |
+| -------------------------------------------- | ---------------------- |
+| today, nothing on it, and nothing was        | `No Events Today`      |
+| today, had something, all of it already over | `No More Events Today` |
+| tomorrow                                     | `No Events Tomorrow`   |
+| yesterday                                    | `No Events Yesterday`  |
+| any other day                                | `No Events`            |
+
+The distinction between the first two rows is only ever worth drawing on today: yesterday
+is finished by definition, so `No More Events Yesterday` would be saying nothing, and
+tomorrow cannot be. Past the day either side, the date block above the line has already
+named the day better than a relative word could, so the line stops trying.
 
 "Already over" is §2's own rule read backwards: the same events that drop out of the flow
 during the day are what turn the line into `No More Events Today`, so it arrives when the
@@ -499,8 +552,10 @@ and giving it a row's feedback would make it read as one more of them.
 **An event opens the calendar.** `/calendar`, which is the whole of what Home Assistant's
 calendar panel can be sent to: it reads nothing out of the URL, so there is no addressing a
 date or an event, and which calendars are shown lives in its own local storage. It opens on
-today, which is the day the widget is about, so the gap between this and a deep link is
-narrower than it sounds.
+today, which is the day the widget is usually about, so the gap between this and a deep link
+is narrower than it sounds. A card sent elsewhere by `day_offset` is the one case where the
+panel lands on a different day from the row that was tapped, and there is nothing to be done
+about it: the parameter does not exist.
 
 **A reminder opens its own list.** `/todo?entity_id=todo.…`, and the parameter is the point:
 `ha-panel-todo` remembers the last list the user looked at, so `/todo` on its own would open

@@ -731,12 +731,19 @@ and the form's data gains one key per panel rather than one per field. `flatten:
 out, which is what Home Assistant's own badge and heading-entity editors do: they group
 `name`/`icon`/`color` under a **Content** panel that still writes flat config keys.
 
-Worth knowing and, in the end, not what the battery card uses. Its device list was built on
-named `expandable` nodes first, one per configured device, with a multiple entity picker above
-them for adding and reordering, and the thing that sank it is that **nothing in `ha-form` can
-hang a drag handle or a delete button off a panel**. The panels could describe the devices but
-could never _be_ the list, so the list stayed a separate picker and one device sat in two
-controls. See `cards/battery/device-list-editor.ts`, which owns its panels instead.
+The flattened half is what the calendar card's **Advanced** section is: two rows behind a
+disclosure triangle that still write `day_offset` and `days_to_show` at the top level of the
+config. `core/card-editor.ts` therefore walks the schema rather than mapping it, in both
+directions (`fieldNames` and `formData`), since a group node carries rows instead of a
+selector and a value.
+
+It is **not** what the battery card uses, and that is worth recording too. Its device list
+was built on named `expandable` nodes first, one per configured device, with a multiple
+entity picker above them for adding and reordering, and the thing that sank it is that
+**nothing in `ha-form` can hang a drag handle or a delete button off a panel**. The panels
+could describe the devices but could never _be_ the list, so the list stayed a separate
+picker and one device sat in two controls. See `cards/battery/device-list-editor.ts`, which
+owns its panels instead.
 
 `ha-form-expandable` itself takes `title`, `icon`, `iconPath`, `expanded` and `headingLevel`,
 renders `schema.title || computeLabel(schema)` as the summary, and hands `computeLabel` /
