@@ -30,6 +30,7 @@
  * frontend does not use and neither do we.
  */
 
+import { fetchEntityColors } from '../../core/entity-color'
 import type { HomeAssistant } from '../../core/types/ha'
 import { isWireDateOnly, parseWireDate } from './datetime'
 import type { DayWindow } from './flow'
@@ -55,17 +56,6 @@ export interface CalendarEventPayload {
 /** What arrives on the subscription. `null` is Home Assistant saying the fetch failed. */
 export interface CalendarPush {
   events?: CalendarEventPayload[] | null
-}
-
-/**
- * The slice of a `config/entity_registry/get_entries` reply this card reads.
- *
- * Only `options`, and only two levels into it. The command answers a map keyed by the
- * entity ids that were asked for, with `null` for an entity that has no registry entry
- * at all, which every YAML and `demo` calendar is, since they carry no unique id.
- */
-interface RegistryEntry {
-  options?: { calendar?: { color?: unknown } }
 }
 
 const CALENDAR_DOMAIN = 'calendar.'
@@ -141,6 +131,10 @@ export const calendarsFor = (value: unknown, hass: HomeAssistant | undefined): s
  * a calendar and a to-do list can come out the same hue. That is deliberate: the deck is
  * the widget's, not the calendars', and dealing the to-do lists from where the calendars
  * left off would make a list's colour depend on how many calendars happen to exist.
+ *
+ * It is the floor under both, not the answer: a calendar with a colour in the entity
+ * registry, and a to-do list with one in ours, are drawn in that instead. See
+ * `core/entity-color.ts`.
  */
 const PALETTE = [
   'var(--cw-blue)',
@@ -155,65 +149,6 @@ const PALETTE = [
 
 export const paletteColor = (index: number): string =>
   PALETTE[((index % PALETTE.length) + PALETTE.length) % PALETTE.length]
-
-/**
- * Home Assistant's named colour tokens: the 25 its colour picker can produce.
- *
- * The picker writes one of these; the `google` integration seeds a `#RRGGBB` instead,
- * through `cv.color_hex`. Between them that is every value `options.calendar.color`
- * holds in practice.
- */
-const HA_COLOR_TOKENS = new Set([
-  'primary',
-  'accent',
-  'red',
-  'pink',
-  'purple',
-  'deep-purple',
-  'indigo',
-  'blue',
-  'light-blue',
-  'cyan',
-  'teal',
-  'green',
-  'light-green',
-  'lime',
-  'yellow',
-  'amber',
-  'orange',
-  'deep-orange',
-  'brown',
-  'light-grey',
-  'grey',
-  'dark-grey',
-  'blue-grey',
-  'black',
-  'white',
-])
-
-const HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
-
-/**
- * The colour the user chose for a calendar in Home Assistant, if it is one we can draw.
- *
- * Narrower than the frontend's `isValidColor` on purpose, and the difference is worth
- * stating. That one ends in `new Option().style.color = value`, asking the browser
- * whether the string is a colour at all, which needs a DOM this layer does not have and
- * the tests do not run in. So the rule here is a token or a hex, which covers everything
- * Home Assistant itself writes, and anything stranger falls through to the palette. A
- * colour that came back looking wrong is a nuisance; an invalid `--item-color` would take
- * the row's tint and its title with it.
- *
- * A token becomes `var(--red-color)` rather than a literal, exactly as `computeCssColor`
- * does it, so a user's theme keeps its say over the shade. Note the three text tokens
- * (`primary-text`, `secondary-text`, `disabled`) are not in the set; the frontend maps
- * them but its validator rejects them too.
- */
-export const registryColor = (value: unknown): string | undefined => {
-  if (typeof value !== 'string' || value === '') return undefined
-  if (HA_COLOR_TOKENS.has(value)) return `var(--${value}-color)`
-  return HEX.test(value) ? value : undefined
-}
 
 // ---- The window ----------------------------------------------------------------
 
@@ -430,16 +365,17 @@ export class CalendarFeed {
   /**
    * Colours for the calendars we are about to subscribe to.
    *
-   * `hass.entities` cannot answer this. It is the DISPLAY registry (twelve fields,
-   * decoded from `config/entity_registry/list_for_display`), and `options` is not one of
-   * them, which is the trap in the sketch this replaces. The colour lives in the full
-   * registry, and Home Assistant's own calendar card fetches the whole of it to read
-   * two levels into one key. `get_entries` asks for the entities we care about instead:
-   * same data, and it is not admin-gated either.
+   * The palette is laid down first and the stored colours go over it, so a calendar
+   * without one keeps its position in the deck. `core/entity-color.ts` has where the
+   * stored one comes from and why `hass.entities` cannot answer it; failure there is
+   * swallowed, which leaves this holding the palette and drawing.
    *
-   * Failure is not fatal: a card that refused to draw because it could not learn a
-   * shade would be worse than one drawing the palette. So the fallback is the palette,
-   * by position in the list, which is what Home Assistant falls back to as well.
+   * Deliberately a fetch per reconcile rather than the `EntityColors` holder the to-do
+   * lists use, and the difference is not laziness: this feed maps a row to a `CalendarItem`
+   * as it arrives, so a colour landing later would have to re-map every snapshot on the
+   * card rather than repaint. A colour edited in Home Assistant's settings dialog reaches
+   * this card at the next window rollover or config edit. The lists get the live version
+   * because `TodoFeed` maps at publish and can simply publish again.
    */
   private async _loadColors(
     hass: HomeAssistant,
@@ -451,21 +387,12 @@ export class CalendarFeed {
 
     if (!entityIds.length) return
 
-    try {
-      const entries = await hass.callWS<Record<string, RegistryEntry | null>>({
-        type: 'config/entity_registry/get_entries',
-        entity_ids: [...entityIds],
-      })
-      // Overtaken by a later reconcile, whose palette fill is already in place. Writing
-      // this answer over it would colour the card for a calendar list it no longer has.
-      if (revision !== this._revision) return
-      for (const entityId of entityIds) {
-        const chosen = registryColor(entries?.[entityId]?.options?.calendar?.color)
-        if (chosen) this._colors.set(entityId, chosen)
-      }
-    } catch (error) {
-      console.debug('[cupertino-widgets] no calendar colours from the registry', error)
-    }
+    const stored = await fetchEntityColors(hass, entityIds)
+    // Overtaken by a later reconcile, whose palette fill is already in place. Writing
+    // this answer over it would colour the card for a calendar list it no longer has.
+    if (revision !== this._revision) return
+
+    for (const [entityId, color] of stored) this._colors.set(entityId, color)
   }
 
   private async _subscribe(

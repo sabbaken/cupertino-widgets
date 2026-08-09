@@ -406,9 +406,83 @@ than an error frame on a live subscription.
 Also there, and not used: `todo/item/list` (a one-shot with `_api_items_factory`, so no
 nulls), `todo/item/move`, and the `todo.get_items` service with `SupportsResponse.ONLY`.
 
-**A to-do list has no colour.** There is no `options.todo` in the entity registry and no
-colour anywhere in the to-do panel (grepped both). `options.calendar.color` has no
-counterpart, so a palette is the whole answer rather than a fallback.
+**A to-do list has no colour of Home Assistant's own, and is not getting one.** There is no
+`options.todo` in the entity registry and no colour anywhere in the to-do panel (grepped
+both). The picker in the entity settings dialog is gated on the domain, still in the current
+`main` and not only in the image:
+
+```ts
+// frontend, src/panels/config/entities/entity-registry-settings-editor.ts:766, :1313
+domain === "calendar" ? html`<ha-color-picker … .value=${this._calendarColor} …>` : nothing
+if (domain === "calendar") { params.options_domain = domain; … }
+```
+
+`CalendarEntityOptions` is the only options type in `src/data/entity/entity_registry.ts`
+carrying a colour, and `src/data/calendar.ts:129` (`getCalendars`) is its only consumer.
+Nothing is in flight either: searched `core`, `frontend`, `architecture` and
+`feature-requests`, and the 2026.8 release notes. The only open to-do proposal is
+`architecture#1349` (a `priority` field on `TodoItem`), which never mentions colour.
+For scale, the calendar's own colour took from `architecture#883` in March 2023 to shipping
+in January 2026.
+
+**So the library keeps its own, in the same field under its own namespace**, which is
+`options.cupertino_widgets.color` and is what `src/core/entity-color.ts` reads and writes.
+Three things make that a supported place to put it rather than a squat:
+
+1. **The namespace is not validated.** `websocket_update_entity` hands `msg["options_domain"]`
+   straight to the registry with nothing compared against the entity's own domain, and
+   `async_update_entity_options` stores it with no whitelist:
+
+   ```python
+   # components/config/entity_registry.py:277-281
+   if "options_domain" in msg:
+       entity_entry = registry.async_update_entity_options(
+           entity_id, msg["options_domain"], msg["options"]
+       )
+
+   # helpers/entity_registry.py:1995-2008
+   def async_update_entity_options(self, entity_id, domain, options):
+       new_options = {k: v for k, v in old.options.items() if k != domain}
+       if options is not None:
+           new_options[domain] = options
+   ```
+
+   Namespaces that are not entity domains are already in the wild: a stock dev instance
+   carries `conversation`, `sensor` and `sensor.private` keys in `core.entity_registry`.
+
+2. **A write replaces the namespace and `None` removes it.** Read the whole namespace,
+   change one key, send it back. `options: null` drops it entirely, which is what unsetting a
+   colour should leave behind. Note `options_domain` and `options` are `vol.Inclusive`, so
+   they travel together.
+
+3. **Neither side clobbers the other.** Home Assistant's settings dialog sends one
+   `options_domain` per save (`entity-registry-settings-editor.ts:1316` reads
+   `this.entry.options?.calendar || {}` first), and the registry only replaces the named key.
+
+**The write needs admin and that costs nothing here.** `config/entity_registry/update` is
+`@require_admin` (`components/config/entity_registry.py:149`), and so is
+`lovelace/config/save` (`components/lovelace/websocket.py:149`), so anybody who can save a
+card config can write the registry. `config/entity_registry/get_entries`, the read, is not
+gated at all.
+
+**An options write fires `entity_registry_updated`.** `_async_update_entity` ends at
+`hass.bus.async_fire_internal(EVENT_ENTITY_REGISTRY_UPDATED, data)`
+(`helpers/entity_registry.py:1895`) with `{ action, entity_id, changes }`, and it reaches a
+card over `subscribe_events`, which is what the frontend's own registry collection uses
+(`subscribeEntityRegistryUpdates` in `src/data/entity/entity_registry.ts:307`). That is the
+subscription behind a colour changing in one card's editor and landing in another card
+without a reload.
+
+**Labels were the other candidate and are the wrong tool.** A label is the only other native
+per-entity colour: `LabelEntry.color` is validated as
+`vol.Any(cv.color_hex, vol.In(SUPPORTED_LABEL_THEME_COLORS), None)`, the same format as a
+calendar's, and `hass.entities[id].labels` reaches a card for free (`("lb", "labels", True)`
+in `DISPLAY_DICT_OPTIONAL`, mapped as `labels: a.lb` when the display registry is decoded).
+Three things rule it out: a label has no hidden flag of any kind, so one carrying a colour
+shows up in `/config/labels` and in every label picker; `label_id` is a valid service-call
+target, so a stray label on a to-do list is a hazard rather than clutter; and labels are
+unique by normalised name, so a colour per list would mean creating, reassigning and
+garbage-collecting registry entries for what is one string.
 
 **`TodoListEntityFeature` is about writing, not about content.**
 `SET_DUE_DATE_ON_ITEM = 16` / `SET_DUE_DATETIME_ON_ITEM = 32` say the list accepts a due

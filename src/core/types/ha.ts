@@ -249,14 +249,42 @@ export interface BooleanSelector {
 }
 
 /**
+ * Home Assistant's own colour picker: the 25 named tokens, as a grid of swatches.
+ *
+ * `ha-selector-ui_color` forwards all four keys to `ha-color-picker` and reports the bare
+ * token (`"red"`), which is exactly what the entity registry stores for a calendar and what
+ * `core/entity-color.ts` reads. Two of the keys earn their place in this library:
+ *
+ *  - `include_none` adds a **No color** row, and it is the only way a set colour can be
+ *    unset again: without it the picker offers 25 swatches and no way back. It reports the
+ *    string `"none"`, which is not a colour any more than an empty field is, so a caller
+ *    has to read it as "cleared" rather than store it.
+ *  - `default_color` marks one swatch **(default)**, which is how the picker says out loud
+ *    what an empty field will draw.
+ */
+export interface UiColorSelector {
+  ui_color: {
+    default_color?: string
+    include_none?: boolean
+    include_state?: boolean
+  }
+}
+
+/**
  * A selector, as `ha-selector` reads it.
  *
  * It dispatches on `Object.keys(selector)[0]`, so exactly one key is meaningful;
  * hence a union rather than a bag of optional keys. The shipped build knows 57 of
- * these; these are the six our editors ask for.
+ * these; these are the seven our editors ask for.
  */
 export type Selector =
-  EntitySelector | SelectSelector | NumberSelector | IconSelector | TextSelector | BooleanSelector
+  | EntitySelector
+  | SelectSelector
+  | NumberSelector
+  | IconSelector
+  | TextSelector
+  | BooleanSelector
+  | UiColorSelector
 
 /** One row of an `ha-form`: a label, and a control chosen by the selector. */
 export interface HaFormRow {

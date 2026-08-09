@@ -73,13 +73,23 @@ token its colour picker writes, or the palette entry `source.ts` deals a calenda
 neither. The widget needs four out of that one: the bar, the title, the time, and the chip
 behind them. Twice over, because a dark theme is not a light one with the numbers nudged.
 
-A **to-do list** has no colour at all in Home Assistant (no registry option, nothing in
-the to-do panel), so for those the palette is not a fallback, it is the whole answer: a
-list takes the entry at its own position in the card's list of lists. That is dealt
-independently of the calendars, so a calendar and a to-do list can come out the same hue.
-The alternative, dealing the lists from where the calendars left off, would make a list's
-colour depend on how many calendars happen to exist, and the two rows do not look alike
-anyway: one has a bar and a tint, the other a circle and grey.
+A **to-do list** has no colour of Home Assistant's own (no registry option, nothing in the
+to-do panel), so what it has instead is the colour its owner set in a reminders card, which
+this library keeps against the entity under a namespace of its own:
+`options.cupertino_widgets.color`. `docs/reminders-widget-rules.md` §6a is the design and
+`src/core/entity-color.ts` is the mechanism. That is what makes a shopping list the same
+colour here as it is in the widget beside this card, which is the whole point of storing it
+where both can read it.
+
+A list with no colour set falls to the palette, at its own position in the card's list of
+lists. That is dealt independently of the calendars, so a calendar and a to-do list can come
+out the same hue. The alternative, dealing the lists from where the calendars left off, would
+make a list's colour depend on how many calendars happen to exist, and the two rows do not
+look alike anyway: one has a bar and a tint, the other a circle and grey.
+
+Unlike a calendar's, a list's colour here is **live**: `TodoFeed` maps its rows at publish, so
+a colour edited elsewhere repaints the flow rather than waiting for the next reconcile. The
+calendars cannot have that as cheaply, since `CalendarFeed` maps a row as it arrives.
 
 The derivation is in OKLCH, and the hue is the channel that never moves. Only `L` and `C`
 do, per role, so the four read as one colour at four strengths rather than as four

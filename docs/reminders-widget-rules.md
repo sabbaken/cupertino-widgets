@@ -219,10 +219,45 @@ filed under and is dropped; here the list is the list, and a date under every ti
 second line the reference does not draw and a row twice as expensive. `src/cards/calendar/` is
 where a to-do item's date earns a row.
 
-**No description, no colour.** The description is a second line by another name. A colour would
-have to be invented: a to-do list has none anywhere in Home Assistant, so the purple is the
-reference's own rather than anything inherited, and `--cw-accent` would make the heading the
-user's primary colour, which is a different card in every installation.
+**No description.** A second line by another name.
+
+## 6a. The colour, and where it is kept
+
+The widget is coloured in three places (the list's name, the round badge, a ticked circle) and
+they are one decision, read through `--cw-list-accent`. Unset, that falls back to the
+reference's purple rather than to `--cw-accent`, which would make the heading the user's
+primary colour and so a different card in every installation.
+
+**The colour belongs to the list, not to the card.** That is the whole of the design, and it
+follows from what the card is: two reminders cards over one list are one list, and the
+calendar card's reminder rows are that list again in a third place. A `color:` in the card
+config would have made three widgets that disagree about one thing, and the user would have to
+set it three times and keep them in step by hand.
+
+So it is stored against the entity, in the same field Home Assistant uses for a calendar's
+colour and under a namespace of this library's own:
+
+```
+todo.groceries → options.cupertino_widgets.color = "purple"
+```
+
+`src/core/entity-color.ts` is the whole of it and `docs/ha-api-notes.md` has the citations for
+why that field takes an arbitrary namespace. Three consequences worth stating here:
+
+- **Home Assistant's own key wins.** The lookup is `options.<domain>.color` and then ours, so
+  a calendar keeps the colour picked in its settings dialog, and the day core grows an
+  `options.todo.color` it takes over by itself: no migration, no version check. There is no
+  sign of that day coming (see the API notes), which is why this exists at all.
+- **The editor writes the registry, not the config.** The reminders card's colour row is the
+  only control in the library that edits something outside its own card, and the round trip is
+  `toForm`/`fromForm` in `reminders-card-editor.ts`. Both halves of it are admin-gated in Home
+  Assistant, and so is saving a dashboard, so the audiences are the same and there is no
+  non-admin path to design for.
+- **A colour change is live.** Both cards watch `entity_registry_updated`, so a colour set in
+  one card's editor reaches every other card holding that list without a reload. The one
+  exception is on purpose: the calendar card's own calendars settle their colour per reconcile
+  rather than per event, because that feed maps a row as it arrives and a late colour would
+  have to re-map every snapshot rather than repaint.
 
 ## 7. Why the third size is decided in the card
 
@@ -324,11 +359,16 @@ Decided rather than known, each one edit away from being decided differently.
   is exactly what somebody puts this on a dashboard for. If it arrives it should arrive as the
   reference draws it, a small red second line, and it doubles the price of a row, which is a
   change to §3 and not only to the template.
-- **The purple is fixed.** Two reminders cards side by side are two purple cards, and a
-  `color` option is the obvious answer. It is not here because a to-do list has no colour in
-  Home Assistant to inherit, so the option would be a preference with nothing behind it, and
-  because the calendar card's positional palette is the wrong shape for a card that shows one
-  list.
+- **The purple is now only the default.** It used to be fixed, on the grounds that a to-do
+  list has no colour in Home Assistant to inherit, so an option would be a preference with
+  nothing behind it. What changed is where the preference goes: §6a puts it on the list rather
+  than on the card, which is what makes it something to inherit rather than a per-widget taste.
+  The positional palette is still the wrong shape for a card that shows one list, and is still
+  not here.
+- **Nothing else is stored against the list.** `options.cupertino_widgets` holds a colour and
+  the code is careful to carry the rest of the namespace over a write, which is currently
+  carrying nothing. The next thing to want a home there is the argument for whether that was
+  foresight or ceremony.
 - **`preview` is not a fixture door.** This card ships none at all, like the battery card: its
   demo data is mock entities in `dev/`, which is the better arrangement wherever a card can
   manage it, and everything this one draws comes out of `hass`.

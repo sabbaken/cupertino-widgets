@@ -40,6 +40,7 @@
  * day the item is due, inclusive, and needs no correction of its own.
  */
 
+import { EntityColors } from '../../core/entity-color'
 import type { HomeAssistant } from '../../core/types/ha'
 import { isWireDateOnly, parseWireDate } from './datetime'
 import type { CalendarItem } from './model'
@@ -205,14 +206,18 @@ export const toReminderItem = (
  *
  *  - no window, so no key to compare and no rollover that invalidates everything. The
  *    entity list is the only thing a reconcile has to look at;
- *  - no colour lookup, so no `await` before subscribing and no revision counter to
- *    discard a stale answer with.
+ *  - the colour lookup is not awaited before subscribing, and needs no revision counter of
+ *    its own: `EntityColors` holds both, and an answer that lands late simply publishes.
  *
  * The one place it is deliberately *unlike* `CalendarFeed`: it keeps the wire payloads per
  * list and maps them on the way out, rather than mapping on the way in. A row's colour is
  * a property of the CURRENT list of lists (the palette is positional), so a list
  * appearing has to re-colour the rows already on screen, and rows mapped when they
  * arrived would keep the old shade until their own list happened to push again.
+ *
+ * That is also what lets this one hold a LIVE colour where `CalendarFeed` settles for one
+ * per reconcile: a list's stored colour can change while the card is on screen, and here
+ * the whole of reacting to it is publishing again.
  */
 export class TodoFeed {
   private readonly _onChange: (items: CalendarItem[]) => void
@@ -233,6 +238,16 @@ export class TodoFeed {
   private _order: readonly string[] = []
   private _orderKey = ''
   private _timeZone: string | undefined
+
+  /**
+   * What a list is drawn in when its owner has said, kept current while the card is up.
+   *
+   * The palette below is the floor under it rather than the answer, which is the same
+   * arrangement `CalendarFeed` has with `options.calendar.color`. A to-do list has no
+   * colour of Home Assistant's own, so what this reads is the library's own namespace, and
+   * a list coloured in a reminders card's editor comes out the same shade here.
+   */
+  private readonly _colors = new EntityColors(() => this._publish())
 
   public constructor(onChange: (items: CalendarItem[]) => void) {
     this._onChange = onChange
@@ -263,6 +278,10 @@ export class TodoFeed {
       if (!wanted.has(entityId)) this._close(entityId)
     }
 
+    // Not awaited, unlike `CalendarFeed`'s: the rows are mapped at publish, so a colour
+    // that arrives after them repaints instead of being missed.
+    void this._colors.reconcile(hass, entityIds)
+
     // One publish for the whole reconcile, and before the new subscriptions rather than
     // after: deselecting a list has to take its rows with it now, and the lists that
     // stayed may have been re-coloured by the ones that left.
@@ -289,6 +308,10 @@ export class TodoFeed {
    * nothing, and this one would be doing it per state change.
    */
   public stop(): void {
+    // Above the guard below, and idempotent, so a card that switches reminders off closes
+    // its registry watch even when it had no rows to clear.
+    this._colors.stop()
+
     if (!this._live.size && !this._snapshots.size && !this._order.length) return
 
     this._order = []
@@ -334,7 +357,7 @@ export class TodoFeed {
   private _publish(): void {
     const items: CalendarItem[] = []
     this._order.forEach((entityId, index) => {
-      const color = paletteColor(index)
+      const color = this._colors.get(entityId) ?? paletteColor(index)
       for (const todo of this._snapshots.get(entityId) ?? []) {
         const item = toReminderItem(todo, entityId, color, this._timeZone)
         if (item) items.push(item)

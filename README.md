@@ -277,9 +277,10 @@ and there is no web API that would know better. That is what `12` and `24` are f
 Colours come from the colour set on each calendar in Home Assistant's entity settings, and
 otherwise from this library's own palette, dealt in the same order Home Assistant's own
 calendar panel deals its own, so a calendar keeps the colour you have got used to. A to-do
-list has no colour to take in Home Assistant, so its circle comes from that palette by the
-position of the list. Every calendar and every list is subscribed to rather than polled, so
-the card follows Home Assistant as events and items change.
+list has no colour of Home Assistant's own to take, so its circle comes from the **Colour**
+you set on the reminders card, and from that palette by the position of the list if you have
+set none. Every calendar and every list is subscribed to rather than polled, so the card
+follows Home Assistant as events and items change, a colour among them.
 
 ### The batteries
 
@@ -337,9 +338,9 @@ instead of a percentage. That is the point of putting the card up.
 
 ### The reminders
 
-One picker, then **Scale**. Choose the to-do list and there is nothing else to answer: the name
-on the card, the number over it, the glyph on the badge and how many rows fit are all worked
-out from the list and the box.
+A picker, a **Colour**, then **Scale**. Choose the to-do list and there is little else to
+answer: the name on the card, the number over it, the glyph on the badge and how many rows fit
+are all worked out from the list and the box.
 
 ```yaml
 type: custom:cupertino-widgets-reminders
@@ -351,6 +352,14 @@ scale: 100 # optional; 80–130, percent
 | -------- | ------- | ---------------------------------------------------------- |
 | `entity` | none    | The `todo` list this card is about. One list per card.     |
 | `scale`  | `100`   | Percent. Draws the whole widget larger or smaller. 80–130. |
+
+**The colour is kept on the list, not on the card**, which is why it is missing from the YAML
+above. Home Assistant has no colour of its own for a to-do list, so this library stores yours
+against the entity, in the field a calendar's colour already lives in. That is what makes it
+worth having: two reminders cards over one list agree about it, the same list drawn among your
+events in the calendar card agrees with both, and setting it in one editor recolours the others
+without a reload. Leave it alone and a list is the reference's purple. Setting it needs an
+admin account, as saving a dashboard does.
 
 **One list per card, and that is the design.** The whole heading is a list's name over a count
 of that list's items, so a card over two lists would have to be told what to call itself and

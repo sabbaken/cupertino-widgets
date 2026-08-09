@@ -10,6 +10,7 @@ import {
 import { state } from 'lit/decorators.js'
 
 import { CupertinoCard, type CupertinoCardConfig } from '../../core/base-card'
+import { EntityColors } from '../../core/entity-color'
 import { cwNavigate } from '../../core/navigate'
 import { registerCard } from '../../core/register'
 import type { LovelaceCardEditor } from '../../core/types/ha'
@@ -206,14 +207,16 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
         min-height: calc(22px * var(--cw-scale));
       }
 
-      /* The one place the widget is coloured, and it is the reference's colour rather than
-         the theme's: a to-do list has no colour anywhere in Home Assistant (there is no
-         options.todo in the entity registry and none in the panel), so there is nothing to
-         inherit, and --cw-accent would make the heading the user's primary colour, which is
-         a different card in every installation. */
+      /* The widget is coloured in three places (this, the badge and a ticked circle) and
+         they are one decision, so they read one custom property. It is set inline on
+         ha-card from what the list's owner chose, and the fallback in each var() is what an
+         uncoloured list draws: the reference's purple rather than --cw-accent, which would
+         make the heading the user's primary colour and so a different card in every
+         installation. Home Assistant has no colour of its own for a to-do list; where the
+         chosen one is kept, and why there, is core/entity-color.ts. */
       .name {
         font: var(--cw-text-headline);
-        color: var(--cw-purple);
+        color: var(--cw-list-accent, var(--cw-purple));
       }
 
       .small .name {
@@ -236,7 +239,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
         width: var(--cw-badge-size);
         height: var(--cw-badge-size);
         border-radius: var(--cw-radius-pill);
-        background: var(--cw-purple);
+        background: var(--cw-list-accent, var(--cw-purple));
         color: var(--cw-on-accent);
         display: flex;
         align-items: center;
@@ -287,8 +290,8 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
       }
 
       .item.done .tick {
-        background: var(--cw-purple);
-        border-color: var(--cw-purple);
+        background: var(--cw-list-accent, var(--cw-purple));
+        border-color: var(--cw-list-accent, var(--cw-purple));
       }
 
       .check {
@@ -342,8 +345,21 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
   /** What has been tapped and is still being held. See `completion.ts`. */
   @state() private _pins: PinSet = NO_PINS
 
+  /**
+   * The colour this list's owner chose, or `undefined` for the purple in the stylesheet.
+   *
+   * Held rather than read out of `hass` at render, because it is not in `hass`: the colour
+   * lives in the full entity registry, which a card fetches (see `core/entity-color.ts`).
+   */
+  @state() private _accent: string | undefined = undefined
+
   private readonly _feed = new ReminderFeed(items => {
     this._items = items
+  })
+
+  private readonly _colors = new EntityColors(colors => {
+    const entityId = this._config?.entity
+    this._accent = entityId ? colors.get(entityId) : undefined
   })
 
   private _sweep: ReturnType<typeof setTimeout> | undefined
@@ -378,6 +394,10 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
     if (config.entity !== previous) {
       this._items = undefined
       this._pins = NO_PINS
+      // For the reason the items go: the colour on screen belongs to the list that was
+      // there before, and wearing it over another list's name for a round trip would be a
+      // statement about somebody else.
+      this._accent = undefined
       this._scheduleSweep()
     }
   }
@@ -415,6 +435,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
     clearTimeout(this._sweep)
     this._sweep = undefined
     this._feed.stop()
+    this._colors.stop()
     super.disconnectedCallback()
   }
 
@@ -425,7 +446,12 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
 
   private async _reconcileFeed(): Promise<void> {
     if (!this.hass) return
-    await this._feed.reconcile(this.hass, this._config?.entity)
+
+    const entityId = this._config?.entity
+    // Not awaited: the rows are what the card is for, and the colour is a repaint whenever
+    // it lands. Both are cheap when nothing moved, which is most of the calls to this.
+    void this._colors.reconcile(this.hass, entityId ? [entityId] : [])
+    await this._feed.reconcile(this.hass, entityId)
   }
 
   // ---- What a tap does -----------------------------------------------------
@@ -649,7 +675,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
     const view: ReminderView = geometry.view
 
     return html`
-      <ha-card>
+      <ha-card style=${this._accent ? `--cw-list-accent: ${this._accent}` : nothing}>
         <div class=${`widget ${view}`}>
           ${view === 'medium' ? html`<div class="lead">${badge}${identity}</div>` : nothing}
           <div class="column">

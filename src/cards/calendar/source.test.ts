@@ -7,7 +7,6 @@ import {
   configuredCalendars,
   discoverCalendars,
   paletteColor,
-  registryColor,
   subscriptionWindow,
   toCalendarItem,
 } from './source'
@@ -140,37 +139,6 @@ describe('paletteColor', () => {
   /** No caller passes one, but `--cw-undefined` would be a silent, unreadable row. */
   it('survives a negative index', () => {
     expect(paletteColor(-1)).toBe(paletteColor(7))
-  })
-})
-
-describe('registryColor', () => {
-  /** A token, not a literal, so a user's theme keeps its say over the shade. */
-  it('maps a Home Assistant colour token to its theme variable', () => {
-    expect(registryColor('red')).toBe('var(--red-color)')
-    expect(registryColor('deep-purple')).toBe('var(--deep-purple-color)')
-  })
-
-  /** What `google` seeds through `cv.color_hex`. */
-  it('takes a hex as written', () => {
-    expect(registryColor('#4269d0')).toBe('#4269d0')
-    expect(registryColor('#ABC')).toBe('#ABC')
-  })
-
-  /**
-   * The frontend maps these three but its own validator rejects them, so a calendar
-   * carrying one falls through to the palette in Home Assistant too.
-   */
-  it('rejects the text tokens the colour picker cannot produce', () => {
-    expect(registryColor('disabled')).toBeUndefined()
-    expect(registryColor('primary-text')).toBeUndefined()
-  })
-
-  it('rejects anything it cannot be sure is a colour', () => {
-    expect(registryColor(undefined)).toBeUndefined()
-    expect(registryColor('')).toBeUndefined()
-    expect(registryColor(0x4269d0)).toBeUndefined()
-    expect(registryColor('nonsense')).toBeUndefined()
-    expect(registryColor('#12345')).toBeUndefined()
   })
 })
 

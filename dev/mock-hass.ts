@@ -220,15 +220,46 @@ const STATES: Record<string, HassEntity> = {
 }
 
 /**
- * Per-calendar colours, as the entity registry holds them.
+ * Entity options, as the registry holds them: colours, and nothing else so far.
  *
- * One named token and one calendar with no entry at all, which is the pair worth having:
- * the token proves the registry lookup and its `var(--red-color)` mapping, and the
- * missing entry proves the fallback to the palette. `demo`'s real calendars have no
- * registry entry either (no unique id), so the second case is the common one.
+ * One entry per path a card can take, and each is paired with something that has no entry at
+ * all so the fallback is on screen beside it. `calendar.calendar_1` carries Home Assistant's
+ * own key, which proves the registry lookup and its `var(--red-color)` mapping, while
+ * `calendar.calendar_2` falls to the palette. `todo.chores` and `todo.errands` carry the
+ * library's own namespace, which is the only place a to-do list's colour can live
+ * (`core/entity-color.ts` says why): the first is the calendar card's reminder rows and the
+ * second the reminders card, so both readers of that key are drawn, and `todo.shopping` and
+ * the other reminder lists are left to the palette and the purple. Two lists rather than one
+ * shared between the cards because the harness gives each card its own fixtures; in a real
+ * installation the point of the key is that one list answers both.
+ *
+ * Mutable, because the reminders editor writes here. See the `config/entity_registry/update`
+ * branch in `callWS`.
  */
-const REGISTRY_OPTIONS: Record<string, { calendar?: { color?: string } }> = {
+const REGISTRY_OPTIONS: Record<string, Record<string, Record<string, unknown>>> = {
   'calendar.calendar_1': { calendar: { color: 'red' } },
+  'todo.chores': { cupertino_widgets: { color: 'teal' } },
+  'todo.errands': { cupertino_widgets: { color: 'orange' } },
+}
+
+/** One registry event, from this side of the socket: the shape core fires. */
+type RegistryListener = (event: { data: { action: string; entity_id: string } }) => void
+
+/**
+ * Everything watching `entity_registry_updated`.
+ *
+ * A flat set rather than a map keyed by entity, unlike `TODO_LISTENERS`, because the real
+ * subscription is not per entity either: `subscribe_events` delivers every registry change
+ * in the installation and the filtering is the subscriber's business. Imitating that is the
+ * point, since a card that filtered wrongly would look fine against a harness that filtered
+ * for it.
+ */
+const REGISTRY_LISTENERS = new Set<RegistryListener>()
+
+const publishRegistry = (entityId: string): void => {
+  for (const listener of REGISTRY_LISTENERS) {
+    listener({ data: { action: 'update', entity_id: entityId } })
+  }
 }
 
 /**
@@ -449,6 +480,22 @@ export function createMockHass({ dark, timeFormat }: MockHassOptions): HomeAssis
           }
         }
 
+        // What a card opens to notice a colour changing under it. No initial event, which
+        // is the real behaviour: an event subscription reports what happens next and says
+        // nothing about the present.
+        if (
+          message.type === 'subscribe_events' &&
+          message.event_type === 'entity_registry_updated'
+        ) {
+          const listener = callback as unknown as RegistryListener
+          REGISTRY_LISTENERS.add(listener)
+
+          return async () => {
+            REGISTRY_LISTENERS.delete(listener)
+            console.debug('[mock-hass] unsubscribed', message)
+          }
+        }
+
         return async () => {
           console.debug('[mock-hass] unsubscribed', message)
         }
@@ -465,6 +512,25 @@ export function createMockHass({ dark, timeFormat }: MockHassOptions): HomeAssis
           ids.map(id => [id, id in REGISTRY_OPTIONS ? { options: REGISTRY_OPTIONS[id] } : null]),
         ) as never
       }
+
+      // Performed rather than logged, like `todo.update_item` below, and for the same
+      // reason: it is a write the showcase can complete, so the whole loop (editor writes,
+      // event fires, every card holding that list repaints) is visible without a Home
+      // Assistant. Core replaces the named namespace outright and drops it on `null`, which
+      // is the half a card has to get right and so the half worth imitating exactly.
+      if (message.type === 'config/entity_registry/update' && 'options_domain' in message) {
+        const entityId = String(message.entity_id)
+        const domain = String(message.options_domain)
+        const options = { ...REGISTRY_OPTIONS[entityId] }
+
+        if (message.options === null) delete options[domain]
+        else options[domain] = message.options as Record<string, unknown>
+
+        REGISTRY_OPTIONS[entityId] = options
+        publishRegistry(entityId)
+        return { entity_entry: { entity_id: entityId } } as never
+      }
+
       return undefined as never
     },
     async callService(domain, service, data, target) {

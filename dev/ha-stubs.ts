@@ -890,6 +890,8 @@ class HaFormStub extends HTMLElement {
       row.append(this._renderText(node.name, value, node.selector.text.placeholder))
     } else if ('boolean' in node.selector) {
       row.append(this._renderBoolean(node.name, value))
+    } else if ('ui_color' in node.selector) {
+      row.append(this._renderColor(node.name, value))
     } else if (node.selector.entity.multiple) {
       row.append(this._renderEntities(node, node.selector.entity))
     } else {
@@ -937,6 +939,34 @@ class HaFormStub extends HTMLElement {
     }
 
     return list
+  }
+
+  /**
+   * A dropdown of colour tokens, standing in for Home Assistant's grid of swatches.
+   *
+   * A sample of the 25 rather than all of them: the stub exists to exercise the path an
+   * editor takes, and the path does not get more exercised by the twenty-sixth swatch. The
+   * two things copied exactly are the ones a card can get wrong. The value reported is the
+   * bare TOKEN (`"red"`), which is what the registry stores and what `registryColor` maps;
+   * and the empty row reports `"none"` rather than `''`, because that is the string
+   * `ha-color-picker` sends for its **No color** row and an editor has to read it as
+   * "cleared" rather than store it as a colour.
+   */
+  private _renderColor(name: string, value: unknown): HTMLElement {
+    const select = document.createElement('select')
+    select.id = `${name}-color`
+
+    const tokens = ['none', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'purple', 'pink']
+    for (const token of tokens) {
+      const option = document.createElement('option')
+      option.value = token
+      option.textContent = token === 'none' ? 'No colour' : token
+      option.selected = value === token || (token === 'none' && !value)
+      select.append(option)
+    }
+
+    select.addEventListener('change', () => this._emit(name, select.value))
+    return select
   }
 
   /**
