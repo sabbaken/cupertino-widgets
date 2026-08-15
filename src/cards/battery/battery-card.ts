@@ -1,12 +1,13 @@
-import { css, html, nothing, svg, type CSSResultGroup, type TemplateResult } from 'lit'
+import { css, html, nothing, type CSSResultGroup, type TemplateResult } from 'lit'
 
 import { CupertinoCard, type CupertinoCardConfig } from '../../core/base-card'
 import { registerCard } from '../../core/register'
 import type { LovelaceCardEditor } from '../../core/types/ha'
+import { FULL_TURN } from '../../ui/gauge/geometry'
+import { gaugeStyles, renderGauge } from '../../ui/gauge/gauge'
 import { BATTERY_EDITOR_TAG } from './battery-card-editor'
 import { gridFor, type BatteryView } from './layout'
 import { readDevices, watchedIds, type BatteryDevice, type BatteryDeviceConfig } from './model'
-import { RING_BOX, RING_CIRCUMFERENCE, RING_RADIUS, RING_STROKE, arcFor } from './ring'
 
 export const BATTERY_CARD_TAG = 'cupertino-widgets-battery'
 
@@ -91,19 +92,24 @@ const CHARGING_BADGE = html`
  * The battery widget: a ring per device, and a percentage under each when they fit on one
  * row.
  *
- * The rules are in `layout.ts` (how many rings, how big, captioned or not), `ring.ts` (the
- * arc) and `model.ts` (what a Home Assistant state means). This class measures the box,
- * asks those three, and draws the answer. See `docs/battery-widget-rules.md`.
+ * The rules are in `layout.ts` (how many rings, how big, captioned or not), `ui/gauge/` (the
+ * arc, which this card is the first and so far the only consumer of) and `model.ts`
+ * (what a Home Assistant state means). This class measures the box, asks those three, and
+ * draws the answer. See `docs/battery-widget-rules.md`.
  */
 class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
   static override styles: CSSResultGroup = [
     CupertinoCard.styles,
+    // The gauge draws the ring, and its stylesheet lands in this card's shadow root rather
+    // than behind a shadow boundary of its own; `ui/gauge/gauge.ts` has the argument, and the
+    // `.cell.unknown` rule at the bottom of this sheet is what it buys.
+    gaugeStyles,
     css`
       /* Every px in this stylesheet is a design unit multiplied by --cw-scale, and
          layout.ts holds the same numbers unscaled: it divides the measured box by the
-         factor instead. The one length that arrives already scaled is --cw-ring-size,
-         which the template sets from the grid: it is the only number the two halves share,
-         and it travels rather than being restated. */
+         factor instead. The one length that arrives already scaled is --cw-gauge-size,
+         which the template sets from the grid: it is the only number this card and the
+         gauge share, and it travels rather than being restated. */
       .widget {
         /* layout.ts prices the grid off these two and off the label's line box. Change one
            here and the arithmetic stops describing what gets drawn. */
@@ -144,56 +150,32 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
         flex-direction: column;
         align-items: center;
         gap: var(--cw-ring-label-gap);
-        width: var(--cw-ring-size);
+        width: var(--cw-gauge-size);
         min-width: max-content;
-      }
 
-      .ring {
-        position: relative;
-        flex: none;
-        width: var(--cw-ring-size);
-        height: var(--cw-ring-size);
-      }
+        /* **The ring is always green.** Not amber at 20 and not red at 5, and this is the
+           design being copied rather than an omission: the level is read off the length of
+           the arc, which is a quantity, and a colour that changed underneath it would be a
+           second, coarser reading of the same number: one that says "low" at 19% and "fine"
+           at 21% when the arc has already said 19 and 21. A widget of six devices in three
+           colours also stops being a glance and becomes a thing to interpret. The traffic
+           light belongs on the notification that fires at 20%, where it is about what to do
+           rather than about what is. §7 of the card's rules is the same argument at length.
 
-      .gauge {
-        display: block;
-        width: 100%;
-        height: 100%;
-      }
-
-      .track {
-        fill: none;
-        stroke: var(--cw-track);
-      }
-
-      /* Always green, at every level. ring.ts has the argument. */
-      .arc {
-        fill: none;
-        stroke: var(--cw-green);
-        stroke-linecap: round;
-      }
-
-      /* Centred in the ring at 45% of it, which is the reference's 28 of 62. Sized through
-         --mdc-icon-size because that is the only handle ha-icon offers; it defaults to
-         24px, so a card that forgot this would draw every icon the same size whatever the
-         ring did. */
-      .glyph {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        --mdc-icon-size: calc(var(--cw-ring-size) * 0.45);
-        color: var(--cw-label);
+           It is declared here rather than in the gauge because it is this card's decision:
+           the gauge draws in one colour at every value and has no opinion on which. */
+        --cw-gauge-mark: var(--cw-green);
       }
 
       .bolt {
-        --cw-bolt-size: calc(var(--cw-ring-size) * 0.34);
+        --cw-bolt-size: calc(var(--cw-gauge-size) * 0.34);
         position: absolute;
         left: 50%;
-        /* Centred on the stroke's centreline, which is RING_STROKE / 2 / RING_BOX of the
-           diameter down from the top (see ring.ts). Straddling it that way leaves about an
-           eighth of the ring's width standing above the box, which the card's inset absorbs. */
-        top: calc(var(--cw-ring-size) * 0.05);
+        /* Centred on the stroke's centreline, which the gauge publishes rather than this
+           card working it out from a stroke it no longer owns. Straddling it that way leaves
+           about an eighth of the ring's width standing above the box, which the card's inset
+           absorbs. */
+        top: var(--cw-gauge-centerline);
         width: var(--cw-bolt-size);
         height: var(--cw-bolt-size);
         transform: translate(-50%, -50%);
@@ -211,8 +193,9 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
       }
 
       /* A device that is not reporting: the icon and the dash both step back, so the ring
-         reads as "nothing to say" rather than as "empty". */
-      .cell.unknown .glyph {
+         reads as "nothing to say" rather than as "empty". Reaching into the gauge's own
+         class, which is the whole point of it not having a shadow root of its own. */
+      .cell.unknown .cw-gauge-glyph {
         opacity: 0.4;
       }
 
@@ -279,50 +262,22 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
   }
 
   /**
-   * The gauge, and two things about it that are easy to get wrong.
+   * The ring, which is a gauge drawn the way a battery wants one.
    *
-   * The group is turned −90° because an SVG circle starts at three o'clock; from there the
-   * dash runs clockwise, which is the direction the reference fills in.
-   *
-   * The arc uses lit's **`svg`** tag rather than `html`, and that is not a nicety. A nested
-   * lit template is parsed on its own, so an `html` one creates this circle in the HTML
-   * namespace: it lands in the DOM with every attribute set and every *presentation*
-   * attribute ignored: `stroke-width` reads back as 1px, `stroke-dasharray` as `none`, and
-   * the card draws a bare track at every level, with nothing anywhere to say why.
+   * A full turn from twelve o'clock rather than the notched dial the shared component
+   * defaults to, an arc rather than a dot, and a level that is already a percentage, so the
+   * scale is the one the gauge assumes and is not passed. Everything else that used to be
+   * here (the rotation, the dash, lit's `svg` tag and the reason for it) moved into
+   * `ui/gauge/gauge.ts` with the drawing itself.
    */
   private _renderRing(device: BatteryDevice): TemplateResult {
-    const arc = arcFor(device.level)
-    const centre = RING_BOX / 2
-
-    return html`
-      <div class="ring">
-        <svg class="gauge" viewBox="0 0 ${RING_BOX} ${RING_BOX}" aria-hidden="true">
-          <g transform="rotate(-90 ${centre} ${centre})">
-            <circle
-              class="track"
-              cx=${centre}
-              cy=${centre}
-              r=${RING_RADIUS}
-              stroke-width=${RING_STROKE}
-            />
-            ${
-              arc > 0
-                ? svg`<circle
-                    class="arc"
-                    cx=${centre}
-                    cy=${centre}
-                    r=${RING_RADIUS}
-                    stroke-width=${RING_STROKE}
-                    stroke-dasharray=${`${arc} ${RING_CIRCUMFERENCE}`}
-                  />`
-                : nothing
-            }
-          </g>
-        </svg>
-        <ha-icon class="glyph" .icon=${device.icon}></ha-icon>
-        ${device.charging ? CHARGING_BADGE : nothing}
-      </div>
-    `
+    return renderGauge({
+      value: device.level,
+      sweep: FULL_TURN,
+      mark: 'arc',
+      glyph: device.icon,
+      overlay: device.charging ? CHARGING_BADGE : nothing,
+    })
   }
 
   /**
@@ -392,7 +347,7 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
 
     return html`
       <ha-card>
-        <div class="widget" style=${`--cw-ring-size: calc(${grid.ring}px * var(--cw-scale))`}>
+        <div class="widget" style=${`--cw-gauge-size: calc(${grid.ring}px * var(--cw-scale))`}>
           <div class="grid">
             ${rows.map(
               row => html`

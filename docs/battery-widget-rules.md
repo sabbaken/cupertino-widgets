@@ -86,24 +86,27 @@ device class, which is what the pickers' filter costs and is stated where the fi
 
 ## 2. The ring
 
-- A track the full way round, and an arc over it from **twelve o'clock, clockwise**, whose
-  length is `level / 100` of the circle.
-- **Always green**, at every level. Not amber at 20 and not red at 5 (see §7).
-- Stroke **10% of the diameter**, with round caps. The track is the same stroke in
-  `--cw-track`. Ten and not the 13 the reference's 8-of-62 comes to: that proportion is right
-  on a 62pt ring and reads heavy at the 96 this card draws at the design footprint, because
-  the same share of a ring half again as large is half again as much ink; the arc stops
-  looking like a line and starts looking like a band.
+The ring is drawn by the library's shared gauge, and the rules it shares with every other dial
+are in [`gauge-rules.md`](gauge-rules.md): the coordinate space, the 10% stroke and why it is
+not 13, the round caps, and the one-unit shortest arc that makes a 1% battery visible without
+overstating it. What this card decides about it:
+
+- **A full turn**, `FULL_TURN`, from **twelve o'clock, clockwise**, where the shared gauge's
+  own default, `OPEN_DIAL`, has a notch at the bottom. The battery is a quantity that can
+  genuinely be all of itself, and a ring that stops short of its own start would say 100% is
+  not quite full.
+- An **arc**, not a dot: a length is how much is left, which is the question, and a dot on a
+  bare track would answer a different one.
+- Level is already 0 to 100, so the gauge's own scale is the one it assumes and the card passes
+  no `min` or `max`.
+- **Always green**, at every level. Not amber at 20 and not red at 5 (see §7). The gauge itself
+  has no opinion on colour; this card sets `--cw-gauge-mark`.
 - `level === 0` and `level === null` are both a bare track. The two are told apart by the
   caption, `0%` against an em dash, and where there is no caption, by the dimmed icon.
-- The shortest arc there is, for any level above zero, is one unit of the ring's hundred: with
-  a round cap that paints exactly one dot of the stroke's width, which is the reading a 1%
-  battery deserves. Deliberately **not** a floor of the stroke width, which is the obvious
-  answer and is wrong by twice over; a cap adds half a stroke beyond each end of the dash, so
-  a dash of one stroke draws two long and a 1% battery would read as 7%.
 
-**The icon** sits in the middle of the ring at 45% of its diameter, in `--cw-label`, at 40%
-opacity when there is no reading.
+**The icon** is passed as the gauge's whole middle, so it is drawn at the size that implies
+(`gauge-rules.md` §6). What this card adds is the dimming: 40% opacity when there is no reading,
+so a device with nothing to say reads as "nothing to say" rather than as "empty".
 
 **The charging badge** is a bolt at twelve o'clock, straddling the stroke's centreline, on a
 disc of the card's own surface colour. The disc is what makes it work: the badge sits exactly
@@ -111,7 +114,9 @@ where the arc _starts_, so a green bolt laid straight on it is invisible at the 
 matters most: a device left on the charger overnight, at 100%, whose arc runs all the way
 round. Punching the surface through first costs a notch out of the arc and buys a badge that
 reads at every level. The arc underneath is not shortened for it, so its length still means
-what it means.
+what it means. It is drawn through the gauge's `overlay`, and it is this card's CSS that puts it
+where it goes, off `--cw-gauge-centerline`: the gauge publishes where the middle of its stroke
+is so that a badge does not have to restate a stroke width it no longer owns.
 
 The glyph is Material's own `Bolt` rather than one of MDI's, which makes it the only icon in
 the library not drawn from the set Home Assistant draws itself with. MDI's `mdiFlash` and

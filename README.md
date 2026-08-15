@@ -19,7 +19,8 @@ taken from the box you drag them into rather than from a size setting.
 **[The reminders](#the-reminders)** ·
 **[Card rules](docs/calendar-widget-rules.md)** ·
 **[Ring rules](docs/battery-widget-rules.md)** ·
-**[List rules](docs/reminders-widget-rules.md)**
+**[List rules](docs/reminders-widget-rules.md)** ·
+**[Gauge rules](docs/gauge-rules.md)**
 
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sabbaken)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sabbaken)

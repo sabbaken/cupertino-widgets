@@ -204,6 +204,9 @@ src/
   theme/
     tokens.ts           --cw-* tokens, bridged onto Home Assistant theme variables
     base-styles.ts      structural CSS shared by every card
+  ui/gauge/             the shared dial: a track, a mark on it, a reading in the middle
+    geometry.ts         sweeps, fractions, dashes and points, all in a 100-unit box
+    gauge.ts            the stylesheet a card composes and the template it calls
   cards/<widget>/       one directory per widget
 dev/
   site/                 the showcase, one entry per widget in catalog.ts
@@ -234,7 +237,6 @@ cards/battery/
   battery-card.ts          the element: measure the box, draw what the two below decide
   battery-card-editor.ts   one row, plus the fold that keeps a hand-written override
   layout.ts                how many rings, in how many rows, captioned or not, how big
-  ring.ts                  the arc: its coordinate space, and why it is always green
   model.ts                 a Home Assistant state as a device: level, icon, charging
 
 cards/reminders/
@@ -306,6 +308,10 @@ different way than it is. Keep the tab in front, or take a screenshot to bring i
 - [`reminders-widget-rules.md`](reminders-widget-rules.md). The same for the reminders card:
   which of its three shapes a box gets, how many rows fit, and what a tap on a row does for
   the five seconds it can be taken back.
+- [`gauge-rules.md`](gauge-rules.md): the shared dial in `src/ui/gauge/`, which is a component
+  rather than a widget, so it has no footprint and no row budget. What it does have is a set of
+  numbers fitted off the reference's own gauges: the notch, the stroke, the dot and the hole
+  under it, and every type size in the middle.
 - [`ha-api-notes.md`](ha-api-notes.md): the Home Assistant APIs this library depends on,
   each verified against the frontend bundle shipped in the HA image rather than against
   documentation, including several points where the widely-repeated advice is now wrong.

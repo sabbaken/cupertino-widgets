@@ -1,7 +1,7 @@
 /**
  * What the battery widget draws, and how a Home Assistant state becomes one.
  *
- * The layout layers (`layout.ts`, `ring.ts`) only ever see a `BatteryDevice`, so this is
+ * The layout layers (`layout.ts`, the shared gauge) only ever see a `BatteryDevice`, so this is
  * the whole of the card's contact with Home Assistant, and it is a much shorter contact
  * than the calendar's: a battery level is a number sitting in `hass.states`, pushed to
  * every card on every change, so there is no subscription, no window and no wire mapper.
