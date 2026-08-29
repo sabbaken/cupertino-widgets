@@ -1,5 +1,13 @@
 # Cupertino Widgets
 
+> ## 🚀 Kiryl Viarenich — Senior Full-Stack Developer
+> **I'm currently open to new opportunities and looking for a job.**
+>
+> Senior full-stack developer with 6 years of experience, strongest in React and Node.js/NestJS,
+> used to owning a feature from the schema through to the screen.
+>
+> 💼 [LinkedIn](https://www.linkedin.com/in/kiryl-viarenich)
+
 Widget cards for [Home Assistant](https://www.home-assistant.io/) dashboards, styled like the
 ones on a phone's home screen: sensible defaults instead of a config to fill in, and a shape
 taken from the box you drag them into rather than from a size setting.
