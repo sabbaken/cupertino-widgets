@@ -1,6 +1,7 @@
 # Cupertino Widgets
 
 > ## 🚀 Kiryl Viarenich — Senior Full-Stack Developer
+>
 > **I'm currently open to new opportunities and looking for a job.**
 >
 > Senior full-stack developer with 6 years of experience, strongest in React and Node.js/NestJS,
