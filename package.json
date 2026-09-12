@@ -1,6 +1,6 @@
 {
   "name": "cupertino-widgets",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "type": "module",
   "description": "Phone-style widget cards for Home Assistant dashboards",
