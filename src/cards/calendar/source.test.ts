@@ -80,12 +80,32 @@ describe('discoverCalendars', () => {
     expect(discoverCalendars(hass)).toEqual(['calendar.home', 'calendar.work'])
   })
 
-  it('skips an unavailable calendar and one hidden in the registry', () => {
-    const hass = hassWith(
-      { 'calendar.work': 'unavailable', 'calendar.home': 'off', 'calendar.gym': 'on' },
-      ['calendar.gym'],
-    )
+  it('skips a calendar hidden in the registry', () => {
+    const hass = hassWith({ 'calendar.home': 'off', 'calendar.gym': 'on' }, ['calendar.gym'])
     expect(discoverCalendars(hass)).toEqual(['calendar.home'])
+  })
+
+  /**
+   * Home Assistant's own helper drops these, and this one does not. `unavailable` is what a
+   * calendar looks like while its integration reloads, and dropping it took its rows off the
+   * card for the length of the reload: the card blinked every time one synced that way.
+   */
+  it('keeps an unavailable calendar', () => {
+    const hass = hassWith({ 'calendar.work': 'unavailable', 'calendar.home': 'off' })
+    expect(discoverCalendars(hass)).toEqual(['calendar.home', 'calendar.work'])
+  })
+
+  /**
+   * Asked on every `hass` swap by every calendar card, so one walk serves a states object.
+   * The frontend replaces the object on every change, which is what makes it a key.
+   */
+  it('walks the same states once, and walks again for new states or a new registry', () => {
+    const hass = hassWith({ 'calendar.work': 'on' })
+    const first = discoverCalendars(hass)
+
+    expect(discoverCalendars(hass)).toBe(first)
+    expect(discoverCalendars({ ...hass, states: { ...hass.states } })).not.toBe(first)
+    expect(discoverCalendars({ ...hass, entities: { ...hass.entities } })).not.toBe(first)
   })
 
   /**

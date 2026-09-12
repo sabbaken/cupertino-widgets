@@ -92,12 +92,27 @@ describe('discoverTodoLists', () => {
     expect(discoverTodoLists(hass)).toEqual(['todo.chores', 'todo.shopping'])
   })
 
-  it('skips an unavailable list and one hidden in the registry', () => {
-    const hass = hassWith(
-      { 'todo.shopping': 'unavailable', 'todo.chores': '0', 'todo.work': '2' },
-      ['todo.work'],
-    )
+  it('skips a list hidden in the registry', () => {
+    const hass = hassWith({ 'todo.chores': '0', 'todo.work': '2' }, ['todo.work'])
     expect(discoverTodoLists(hass)).toEqual(['todo.chores'])
+  })
+
+  /**
+   * `unavailable` is what a list looks like while its integration reloads. Dropping it took
+   * its rows off the card and re-coloured every list after it until the reload was over.
+   */
+  it('keeps an unavailable list', () => {
+    const hass = hassWith({ 'todo.shopping': 'unavailable', 'todo.chores': '0' })
+    expect(discoverTodoLists(hass)).toEqual(['todo.chores', 'todo.shopping'])
+  })
+
+  it('walks the same states once, and walks again for new states or a new registry', () => {
+    const hass = hassWith({ 'todo.chores': '0' })
+    const first = discoverTodoLists(hass)
+
+    expect(discoverTodoLists(hass)).toBe(first)
+    expect(discoverTodoLists({ ...hass, states: { ...hass.states } })).not.toBe(first)
+    expect(discoverTodoLists({ ...hass, entities: { ...hass.entities } })).not.toBe(first)
   })
 
   /**

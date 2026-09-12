@@ -261,6 +261,39 @@ def _event_dict_factory(obj):          # note: value.isoformat(), NOT as_local
   `+00:00`. So a card must not assume the offset matches `hass.config.time_zone`.
   Naive datetimes cannot occur (`CALENDAR_EVENT_SCHEMA` rejects them).
 
+### A subscription does NOT outlive its entity
+
+Read in core's `dev` branch on 2026-09-12 rather than in the image, which was not running;
+worth re-checking against the next image pulled.
+
+- `CalendarEntity.async_will_remove_from_hass` unsubscribes the state alarms and cancels the
+  listener debouncer, and that is all it does. The `(start, end, listener)` tuples stay on the
+  entity object being discarded, the connection keeps the handle, and no frame is sent. A
+  config entry **reload** removes that object and adds a new one whose `_event_listeners` is
+  `None`, so a subscription opened before the reload never pushes again, and nothing on the
+  socket tells a client so.
+- `todo` is the same and plainer: `TodoListEntity` has `async_subscribe_updates` and no
+  removal hook at all.
+- What a card does see is the state. `Entity.__async_remove_impl` calls
+  `registry_entry.write_unavailable_state(hass)` (`unavailable`, with `restored: true`) for an
+  entity whose registry entry exists and is not disabled, and `hass.states.async_remove` for
+  anything else; the new entity then writes its real state. So a reload reads as
+  `unavailable` and back, or for a YAML entity with no unique id as gone and back.
+- Subscribing in between is refused: `get_entity` finds nothing, which is `not_found` for a
+  calendar and `invalid_entity_id` for a list. The cue to resubscribe is the state coming
+  back, not the state going.
+- The re-push after a write goes through a `Debouncer` with `immediate=True` and
+  `EVENT_LISTENER_DEBOUNCE_COOLDOWN = 1.0`, scheduled from `_async_write_ha_state` on every
+  write whether or not the state changed, and each run is a fresh `async_get_events` over the
+  whole window. Most pushes are therefore the previous one again. `todo` pushes on every
+  write too, straight from `_async_write_ha_state`, with no debounce.
+
+The card's answer, in `CalendarFeed` and `TodoFeed`: an unavailable entity has its
+subscription closed and its rows kept, a returning one is subscribed afresh and its rows
+swapped when that subscription pushes, an absent one takes its rows with it, and a push
+identical to the last is dropped before it is mapped. Discovery keeps `unavailable` entities
+for the same reason, which is the one place it departs from the helper below.
+
 ### Per-calendar colour is NOT on `hass.entities`
 
 `hass.entities` is the DISPLAY registry, decoded in `connection-mixin.ts` from
@@ -338,10 +371,13 @@ never defined by the shipped theme, so`getGraphColorByIndex` always falls throug
 }
 ```
 
-Exactly the zero-config default we want: enumerate `calendar.*`, skip unavailable and
+The zero-config default we want, less one predicate: enumerate `calendar.*`, skip
 registry-hidden entities, honour the user's per-calendar colour from the entity registry,
-else assign from a palette by index. Also confirms `hass.entities` (entity registry) is
-available to custom cards.
+else assign from a palette by index. The helper also skips `unavailable`, and
+`discoverCalendars` does not, for the reason under "A subscription does NOT outlive its
+entity" above: that state is what a reload looks like, and skipping it took the calendar's
+rows off the card for the length of the reload. Also confirms `hass.entities` (entity
+registry) is available to custom cards.
 
 ## To-do data (VERIFIED: it is NOT the calendar's protocol twice)
 

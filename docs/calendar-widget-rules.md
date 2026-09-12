@@ -206,6 +206,14 @@ entity list as `[]`, which is what "I chose nothing" and "I chose everything" bo
 like, so the switch is what says no. Off means not subscribed rather than subscribed and
 filtered.
 
+**Rows leave with their calendar, and with nothing else.** A calendar that is deselected, or
+deleted from Home Assistant, takes its rows off the card at once. One that goes `unavailable`
+keeps them until it is back and has pushed a fresh snapshot over them: that is what a reload
+of its integration looks like from here, it lasts a moment, and the reader is owed the same
+rows on either side of it. The same holds for a calendar whose fetch failed, for every
+subscription rebuilt because the window moved, and for a card that was only moved in the
+dashboard. To-do lists follow the same rule.
+
 **A to-do item is a row only if it has a due date, and is not ticked off.** The date is what
 files it under a day, and a calendar widget has nowhere to put an item without one, which
 is most of a real list, so this is the rule that keeps a shopping list from arriving as a

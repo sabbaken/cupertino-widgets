@@ -21,7 +21,11 @@
  *  - `subscribeMessage` resolves BEFORE the first snapshot arrives (the fetch is wrapped
  *    in `hass.async_create_task`), so there is nothing to await for data;
  *  - events are NOT clipped to the requested window: a platform returns anything that
- *    OVERLAPS it. `buildFlow` does the clipping, which is where it belongs.
+ *    OVERLAPS it. `buildFlow` does the clipping, which is where it belongs;
+ *  - a subscription does NOT outlive its entity. A config entry reload removes the entity
+ *    object the listener hangs off and adds a new one without it, and nothing is sent to
+ *    say so: the card sees the state go `unavailable` and come back, and has to subscribe
+ *    again itself. Read in core's `dev` branch; `docs/ha-api-notes.md` has the lines.
  *
  * On the wire an event is `CalendarEvent.as_dict()`: `start`, `end`, `summary` and
  * `all_day` always present, `description` / `location` / `uid` / `recurrence_id` /
@@ -31,7 +35,7 @@
  */
 
 import { fetchEntityColors } from '../../core/entity-color'
-import type { HomeAssistant } from '../../core/types/ha'
+import type { HassEntity, HomeAssistant } from '../../core/types/ha'
 import { isWireDateOnly, parseWireDate } from './datetime'
 import type { DayWindow } from './flow'
 import type { CalendarItem } from './model'
@@ -61,13 +65,27 @@ export interface CalendarPush {
 const CALENDAR_DOMAIN = 'calendar.'
 
 /**
- * The state Home Assistant's own calendar helper refuses to show.
+ * The state an entity sits in while it cannot be read.
  *
- * `unavailable` and not `unknown`: the helper tests only the former, and a calendar with
- * no current event sits at `off`/`unknown` perfectly happily. Filtering those would hide
- * every quiet calendar in the installation.
+ * `unavailable` and not `unknown`: a calendar with no current event sits at `off`/`unknown`
+ * perfectly happily, and treating that as broken would hide every quiet calendar in the
+ * installation. It is also what a reload looks like from a card: core writes it over an
+ * entity whose integration is being unloaded (with `restored: true`, for anything in the
+ * entity registry), and the new entity writes its real state over it once it is added.
  */
 const UNAVAILABLE = 'unavailable'
+
+/**
+ * Whether an entity can be subscribed to right now. `todo-source.ts` asks the same question.
+ *
+ * Absent means Home Assistant has no such entity (a typo in the config, a deleted
+ * integration), and asking would be refused on every reconcile, which the clock alone runs
+ * once a minute. Unavailable is most often a reload in progress, when the entity object the
+ * command looks up is gone and asking is refused too; when it is an integration failing to
+ * poll instead, the card still has the rows it had and loses nothing by waiting.
+ */
+export const isSubscribable = (entity: HassEntity | undefined): boolean =>
+  entity !== undefined && entity.state !== UNAVAILABLE
 
 // ---- Which calendars -----------------------------------------------------------
 
@@ -91,26 +109,53 @@ export const configuredCalendars = (value: unknown): string[] | undefined => {
 }
 
 /**
+ * The last walk over `hass.states`, kept per states object.
+ *
+ * Discovery is asked on every `hass` swap, which is every state change anywhere in the
+ * installation, and asked more than once per swap: by the re-render filter, again by the
+ * reconcile behind it, and once more by each calendar card on the dashboard. The answer can
+ * only move when the set of entities or the registry does, and the frontend replaces both
+ * objects rather than editing them (`processEvent` in `home-assistant-js-websocket` spreads
+ * the store into a new object per message, and `connection-mixin.ts` builds a new `entities`
+ * per registry push), so their identity is a sound key and one walk serves every card. A
+ * walk measured 0.1ms at 3,000 entities and 0.5ms at 10,000 on a laptop; a wall tablet is an
+ * order of magnitude slower, and a busy installation swaps several times a second.
+ *
+ * A `WeakMap`, so a states object the frontend has moved on from takes its entry with it.
+ */
+const discovered = new WeakMap<object, { entities: object; ids: readonly string[] }>()
+
+/**
  * Every calendar in the installation, in the order that decides their colours.
  *
- * The three predicates and the bare `.sort()` are Home Assistant's own, read out of
- * `getCalendars` in the 2026.7.4 bundle: domain, not `unavailable`, not hidden in the
- * entity registry, then sorted by raw entity id. Copied rather than improved on so that
- * a calendar is the same colour here as it is in Home Assistant's calendar panel,
- * including the awkward part, that adding a calendar re-colours the ones after it.
+ * In the calendar domain, not hidden in the entity registry, sorted by raw entity id: Home
+ * Assistant's own `getCalendars` (read out of the 2026.7.4 bundle) less one of its three
+ * predicates. That helper also drops a calendar whose state is `unavailable`, and this one
+ * keeps it. The helper lists calendars for a panel to fetch from; this decides which
+ * calendars a card holds rows for, and a reload is where the two part company. Filtered, a
+ * calendar mid-reload took its rows off the card and put them back a moment later, which is
+ * the card flickering every time an integration synced by reloading. Kept, it holds its rows
+ * and its place in the deck, and `CalendarFeed` is what declines to subscribe until it is
+ * back. The cost is a calendar that stays broken keeping a colour nobody sees.
+ *
+ * Shared between callers through `discovered`, hence read-only.
  */
-export const discoverCalendars = (hass: HomeAssistant): string[] =>
-  Object.keys(hass.states)
-    .filter(
-      id =>
-        id.startsWith(CALENDAR_DOMAIN) &&
-        hass.states[id]?.state !== UNAVAILABLE &&
-        hass.entities[id]?.hidden !== true,
-    )
+export const discoverCalendars = (hass: HomeAssistant): readonly string[] => {
+  const cached = discovered.get(hass.states)
+  if (cached?.entities === hass.entities) return cached.ids
+
+  const ids = Object.keys(hass.states)
+    .filter(id => id.startsWith(CALENDAR_DOMAIN) && hass.entities[id]?.hidden !== true)
     .sort()
+  discovered.set(hass.states, { entities: hass.entities, ids })
+  return ids
+}
 
 /** What the card is actually going to subscribe to. */
-export const calendarsFor = (value: unknown, hass: HomeAssistant | undefined): string[] => {
+export const calendarsFor = (
+  value: unknown,
+  hass: HomeAssistant | undefined,
+): readonly string[] => {
   const configured = configuredCalendars(value)
   if (configured) return configured
   return hass ? discoverCalendars(hass) : []
@@ -265,12 +310,30 @@ export const toCalendarItem = (
  *    calendar's rows and must not disturb the others;
  *  - nothing torn down that has not moved. `setConfig` runs again on every keystroke of
  *    an edit, and the clock ticks every minute, so a reconcile that resubscribed
- *    unconditionally would thrash the socket for a living.
+ *    unconditionally would thrash the socket for a living;
+ *  - a calendar's rows leave with the calendar and with nothing else. A subscription is
+ *    closed for four reasons: the window moved, the card left the DOM, the calendar went
+ *    unavailable, or it was deselected or deleted. Only the last is news to the reader, so
+ *    the other three keep the snapshot on screen until the next subscription pushes over
+ *    it. Emptying on every close was a blank card for a round trip at each of them, and a
+ *    reload of the calendar's integration is the one that happens without anybody asking.
  */
 export class CalendarFeed {
   private readonly _onChange: (items: CalendarItem[]) => void
 
   private readonly _snapshots = new Map<string, CalendarItem[]>()
+
+  /**
+   * What each snapshot was mapped from: the push as it arrived, with the colour and the zone
+   * it was mapped in.
+   *
+   * Core re-sends the whole window on every state write to the entity, whether or not an
+   * event moved (`docs/ha-api-notes.md` has the debounce), so the usual push is the previous
+   * one again. Serialising it measured a twentieth of the cost of mapping it, and that is
+   * before the repaint a fresh array hands the card.
+   */
+  private readonly _sources = new Map<string, string>()
+
   private readonly _colors = new Map<string, string>()
 
   /**
@@ -302,10 +365,11 @@ export class CalendarFeed {
   /**
    * Point the feed at `entityIds` over `window`, doing as little as possible.
    *
-   * A moved window invalidates every subscription (the span is baked into each one), so
-   * that case starts over. An unchanged window only adds and drops the calendars that
-   * changed, which is what keeps an edit in the entity picker from blanking the card the
-   * user is looking at.
+   * A moved window closes every subscription, since the span is baked into each one, and
+   * leaves every snapshot where it is. Then each calendar the feed holds anything for is
+   * looked up in `hass.states`: deselected or gone takes its rows with it, unavailable closes
+   * its subscription and keeps them. Whatever is wanted, there and not subscribed to, is
+   * subscribed to, which is how a calendar coming back from a reload is picked up again.
    */
   public async reconcile(
     hass: HomeAssistant,
@@ -313,36 +377,42 @@ export class CalendarFeed {
     window: SubscriptionWindow,
     timeZone: string | undefined,
   ): Promise<void> {
-    const wanted = new Set(entityIds)
-
     if (window.key !== this._windowKey) {
       this._windowKey = window.key
-      this._closeAll()
-    } else {
-      let dropped = false
-      for (const entityId of [...this._live.keys()]) {
-        if (wanted.has(entityId)) continue
-        this._close(entityId)
-        dropped = true
-      }
-      // Deselecting a calendar has to take its rows with it now, not whenever one of the
-      // remaining calendars next happens to push. Nothing else would repaint: the
-      // subscription that used to answer for those rows is the one just closed.
-      if (dropped) this._publish()
-      if (entityIds.every(id => this._live.has(id))) return
+      for (const entityId of [...this._live.keys()]) this._unsubscribe(entityId)
     }
+
+    const wanted = new Set(entityIds)
+    let dropped = false
+    for (const entityId of new Set([...this._snapshots.keys(), ...this._live.keys()])) {
+      const entity = hass.states[entityId]
+      if (!wanted.has(entityId) || !entity) {
+        // Deselected, or deleted. The rows go now rather than whenever another calendar next
+        // pushes: nothing else would repaint, since the subscription that answered for them
+        // is the one being closed.
+        this._unsubscribe(entityId)
+        dropped = this._forget(entityId) || dropped
+      } else if (!isSubscribable(entity)) {
+        // A reload, most likely, and core does not end a subscription when it removes the
+        // entity: the listener stays on the object being thrown away and nothing pushes on it
+        // again. Closed here, so the claims below open a new one once the calendar is back.
+        this._unsubscribe(entityId)
+      }
+    }
+    if (dropped) this._publish()
 
     // Claimed before the first await, so a reconcile arriving in the gap sees them as
     // taken and does not open a second subscription to the same calendar. The token is
     // carried from here rather than read back later: by the time the subscribe runs, the
     // entry under this id may belong to a reconcile that came after this one.
     const claims = entityIds
-      .filter(id => !this._live.has(id))
+      .filter(id => !this._live.has(id) && isSubscribable(hass.states[id]))
       .map(entityId => {
         const token = {}
         this._live.set(entityId, { token })
         return { entityId, token }
       })
+    if (!claims.length) return
 
     // Deliberately NOT a reason to abandon the rest of the reconcile. Only the colour
     // lookup can be overtaken; the calendars claimed above are this call's to subscribe,
@@ -355,11 +425,19 @@ export class CalendarFeed {
     )
   }
 
-  /** Called when the card leaves the DOM; safe to call when nothing is running. */
+  /**
+   * Called when the card leaves the DOM and while it draws fixtures; safe to call when
+   * nothing is running.
+   *
+   * Closes every subscription, keeps every row and publishes nothing. The card is on its way
+   * out or drawing something else, so there is nobody to tell, and a card that was only moved
+   * in the DOM comes back through `reconcile` holding the rows it had rather than blank until
+   * its new subscriptions push. Clearing the key is what makes that reconcile resubscribe.
+   */
   public stop(): void {
     this._revision += 1
     this._windowKey = ''
-    this._closeAll()
+    for (const entityId of [...this._live.keys()]) this._unsubscribe(entityId)
   }
 
   /**
@@ -370,29 +448,40 @@ export class CalendarFeed {
    * stored one comes from and why `hass.entities` cannot answer it; failure there is
    * swallowed, which leaves this holding the palette and drawing.
    *
-   * Deliberately a fetch per reconcile rather than the `EntityColors` holder the to-do
-   * lists use, and the difference is not laziness: this feed maps a row to a `CalendarItem`
-   * as it arrives, so a colour landing later would have to re-map every snapshot on the
-   * card rather than repaint. A colour edited in Home Assistant's settings dialog reaches
-   * this card at the next window rollover or config edit. The lists get the live version
-   * because `TodoFeed` maps at publish and can simply publish again.
+   * Built to one side and swapped in whole once the lookup is back, rather than cleared
+   * first. The clear opened a round trip in which every calendar already on screen had only
+   * its palette colour, and a push landing inside it was mapped in that shade and kept it
+   * until the calendar next pushed. Several calendars coming back from one reload each start
+   * a lookup, so the gap was open exactly while their pushes were arriving. A calendar new to
+   * the card is still dealt its palette colour up front, because a reconcile this one
+   * overtook goes ahead with its subscribes and needs something to map in.
+   *
+   * Deliberately a fetch per reconcile that opens a subscription, rather than the
+   * `EntityColors` holder the to-do lists use, and the difference is not laziness: this feed
+   * maps a row to a `CalendarItem` as it arrives, so a colour landing later would have to
+   * re-map every snapshot on the card rather than repaint. A colour edited in Home
+   * Assistant's settings dialog reaches this card the next time a subscription is opened,
+   * which is at least the window rollover. The lists get the live version because
+   * `TodoFeed` maps at publish and can simply publish again.
    */
   private async _loadColors(
     hass: HomeAssistant,
     entityIds: readonly string[],
     revision: number,
   ): Promise<void> {
-    this._colors.clear()
-    entityIds.forEach((id, index) => this._colors.set(id, paletteColor(index)))
-
-    if (!entityIds.length) return
+    const colors = new Map(entityIds.map((id, index) => [id, paletteColor(index)]))
+    for (const [entityId, color] of colors) {
+      if (!this._colors.has(entityId)) this._colors.set(entityId, color)
+    }
 
     const stored = await fetchEntityColors(hass, entityIds)
-    // Overtaken by a later reconcile, whose palette fill is already in place. Writing
-    // this answer over it would colour the card for a calendar list it no longer has.
+    // Overtaken by a later reconcile, whose lookup is about the calendars the card has now.
+    // Writing this answer over it would colour the card for a list it no longer holds.
     if (revision !== this._revision) return
 
-    for (const [entityId, color] of stored) this._colors.set(entityId, color)
+    for (const [entityId, color] of stored) colors.set(entityId, color)
+    this._colors.clear()
+    for (const [entityId, color] of colors) this._colors.set(entityId, color)
   }
 
   private async _subscribe(
@@ -429,10 +518,10 @@ export class CalendarFeed {
       live.unsubscribe = unsubscribe
     } catch (error) {
       // A rejection here is Home Assistant refusing the command, not a dropped
-      // connection: `not_found` for a calendar that no longer exists, `invalid_format`
-      // for one the schema will not take. The card carries on with the calendars that
-      // did work; a config pointing at a deleted calendar should cost that calendar's
-      // rows and nothing else.
+      // connection: `not_found` for a calendar removed since the state that said it was
+      // there, `invalid_format` for one the schema will not take. The card carries on with
+      // the calendars that did work; one bad calendar should cost its own rows and nothing
+      // else.
       if (this._live.get(entityId)?.token === token) this._live.delete(entityId)
       console.warn(`[cupertino-widgets] cannot read ${entityId}`, error)
     }
@@ -451,15 +540,19 @@ export class CalendarFeed {
     const events = push?.events
     if (!events) {
       // `{ events: null }`, which is how the subscription reports that the integration
-      // failed to fetch. Not an error frame, and not the end of the subscription: the
-      // next poll may well succeed, so the calendar is emptied rather than forgotten.
-      this._snapshots.set(entityId, [])
+      // failed to fetch. Not an error frame, and not the end of the subscription: the next
+      // poll may well succeed. The rows on screen are the last good read of this calendar,
+      // and they stay; emptying them turned one failed poll into a blank card until the
+      // next. A calendar that goes on failing keeps its last rows, and the clock retires
+      // them as their times pass.
       console.warn(`[cupertino-widgets] ${entityId} could not be read by Home Assistant`)
-      this._publish()
       return
     }
 
     const color = this._colors.get(entityId) ?? paletteColor(0)
+    const source = `${color}|${timeZone ?? ''}|${JSON.stringify(events)}`
+    if (this._sources.get(entityId) === source) return
+
     const items: CalendarItem[] = []
     for (const event of events) {
       const item = toCalendarItem(event, entityId, color, timeZone)
@@ -467,6 +560,7 @@ export class CalendarFeed {
     }
 
     this._snapshots.set(entityId, items)
+    this._sources.set(entityId, source)
     this._publish()
   }
 
@@ -474,17 +568,19 @@ export class CalendarFeed {
     this._onChange([...this._snapshots.values()].flat())
   }
 
-  private _close(entityId: string): void {
+  /** Close one calendar's subscription and leave its rows where they are. */
+  private _unsubscribe(entityId: string): void {
     const live = this._live.get(entityId)
+    if (!live) return
     this._live.delete(entityId)
-    this._snapshots.delete(entityId)
     // Nothing to do about a failed unsubscribe: the socket may already be gone, which
     // is the case that closed the subscription for us.
-    void live?.unsubscribe?.().catch(() => {})
+    void live.unsubscribe?.().catch(() => {})
   }
 
-  private _closeAll(): void {
-    for (const entityId of [...this._live.keys()]) this._close(entityId)
-    this._publish()
+  /** Take one calendar's rows off the card, answering whether it had any to take. */
+  private _forget(entityId: string): boolean {
+    this._sources.delete(entityId)
+    return this._snapshots.delete(entityId)
   }
 }

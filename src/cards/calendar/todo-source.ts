@@ -23,7 +23,11 @@
  *    `send_result`, so, as with the calendar, there is nothing to await for data;
  *  - a to-do list has no colour anywhere in Home Assistant. There is no `options.todo` in
  *    the entity registry and no colour in the to-do panel (both checked in the bundle), so
- *    the palette is not a fallback here, it is the whole answer.
+ *    the palette is not a fallback here, it is the whole answer;
+ *  - a subscription does not outlive its entity, any more than the calendar's does:
+ *    `TodoListEntity` has no removal hook at all, so the listener is left on the entity
+ *    object a reload removes, and a list coming back from `unavailable` has to be
+ *    subscribed to again.
  *
  * On the wire an item is `dataclasses.asdict(TodoItem)` with **no dict factory**, which is
  * the one place this differs from the calendar in a way that matters: every field is
@@ -44,7 +48,7 @@ import { EntityColors } from '../../core/entity-color'
 import type { HomeAssistant } from '../../core/types/ha'
 import { isWireDateOnly, parseWireDate } from './datetime'
 import type { CalendarItem } from './model'
-import { paletteColor } from './source'
+import { isSubscribable, paletteColor } from './source'
 
 /**
  * One to-do item, as the subscription pushes it.
@@ -66,9 +70,6 @@ export interface TodoPush {
 }
 
 const TODO_DOMAIN = 'todo.'
-
-/** Same state and the same reasoning as `discoverCalendars`; see `source.ts`. */
-const UNAVAILABLE = 'unavailable'
 
 /** The one status that means this is no longer a thing you have to do. */
 const COMPLETED = 'completed'
@@ -110,10 +111,20 @@ export const configuredTodoLists = (value: unknown): string[] | undefined => {
 }
 
 /**
+ * The last walk over `hass.states`, kept per states object, for the reason `discovered` in
+ * `source.ts` gives. A map of its own rather than that one, because the two answer for
+ * different domains off the same key.
+ */
+const discovered = new WeakMap<object, { entities: object; ids: readonly string[] }>()
+
+/**
  * Every to-do list in the installation, in the order that decides their colours.
  *
- * The same three predicates as `discoverCalendars`, for the same reasons, sorted by raw
- * entity id so the colours are stable.
+ * The same predicates as `discoverCalendars` and the same sort, including the predicate it
+ * leaves out: an `unavailable` list is kept. It mattered more here than for a calendar,
+ * because `TodoFeed` deals colours at publish rather than on arrival, so filtering a list
+ * out mid-reload re-coloured every list sorted after it for as long as the reload lasted,
+ * as well as taking its own rows off.
  *
  * Deliberately NOT filtered by `supported_features`. `SET_DUE_DATE_ON_ITEM` and
  * `SET_DUE_DATETIME_ON_ITEM` would look like exactly the filter for a card that only
@@ -121,19 +132,25 @@ export const configuredTodoLists = (value: unknown): string[] | undefined => {
  * an integration serving read-only items with due dates on them advertises none of them
  * and would vanish. A list with no dated items in it costs one subscription and draws
  * nothing, which is the cheaper mistake by far.
+ *
+ * Shared between callers through `discovered`, hence read-only.
  */
-export const discoverTodoLists = (hass: HomeAssistant): string[] =>
-  Object.keys(hass.states)
-    .filter(
-      id =>
-        id.startsWith(TODO_DOMAIN) &&
-        hass.states[id]?.state !== UNAVAILABLE &&
-        hass.entities[id]?.hidden !== true,
-    )
+export const discoverTodoLists = (hass: HomeAssistant): readonly string[] => {
+  const cached = discovered.get(hass.states)
+  if (cached?.entities === hass.entities) return cached.ids
+
+  const ids = Object.keys(hass.states)
+    .filter(id => id.startsWith(TODO_DOMAIN) && hass.entities[id]?.hidden !== true)
     .sort()
+  discovered.set(hass.states, { entities: hass.entities, ids })
+  return ids
+}
 
 /** What the card is actually going to subscribe to. */
-export const todoListsFor = (value: unknown, hass: HomeAssistant | undefined): string[] => {
+export const todoListsFor = (
+  value: unknown,
+  hass: HomeAssistant | undefined,
+): readonly string[] => {
   const configured = configuredTodoLists(value)
   if (configured) return configured
   return hass ? discoverTodoLists(hass) : []
@@ -200,9 +217,10 @@ export const toReminderItem = (
 /**
  * Holds one subscription per to-do list and reports the reminder rows they push.
  *
- * `CalendarFeed`'s counterpart, and it keeps the same three rules (one subscription per
- * entity, one snapshot per entity, nothing torn down that has not moved) while being
- * shorter in two ways that follow from the protocol:
+ * `CalendarFeed`'s counterpart, and it keeps the same four rules (one subscription per
+ * entity, one snapshot per entity, nothing torn down that has not moved, and rows that
+ * leave only with their list) while being shorter in two ways that follow from the
+ * protocol:
  *
  *  - no window, so no key to compare and no rollover that invalidates everything. The
  *    entity list is the only thing a reconcile has to look at;
@@ -223,6 +241,16 @@ export class TodoFeed {
   private readonly _onChange: (items: CalendarItem[]) => void
 
   private readonly _snapshots = new Map<string, TodoItemPayload[]>()
+
+  /**
+   * The push each snapshot came from, serialised, so a repeat of it publishes nothing.
+   *
+   * Core pushes the whole list on every state write to the entity, straight through and with
+   * no debounce (`TodoListEntity._async_write_ha_state`), so a list whose integration polls
+   * re-sends itself whether or not an item moved. Each of those used to re-map every list on
+   * the card and hand it a fresh array to repaint.
+   */
+  private readonly _sources = new Map<string, string>()
 
   /**
    * The live subscription per list, identified by the `token`.
@@ -260,6 +288,9 @@ export class TodoFeed {
    * unchanged case has to cost nothing and in particular must not publish: a fresh array
    * handed to the card would repaint it on every state change in the installation, which
    * is exactly what the card's re-render filter exists to prevent.
+   *
+   * An empty list is how the card switches reminders off. Every list is then deselected, so
+   * every subscription and every row goes, and the colour watch with them.
    */
   public async reconcile(
     hass: HomeAssistant,
@@ -273,9 +304,19 @@ export class TodoFeed {
     this._orderKey = orderKey
     this._timeZone = timeZone
 
+    // The three cases `CalendarFeed.reconcile` tells apart, for its reasons: deselected or
+    // gone takes the rows, and unavailable closes a subscription core will not push on again
+    // while keeping them.
     const wanted = new Set(entityIds)
-    for (const entityId of [...this._live.keys()]) {
-      if (!wanted.has(entityId)) this._close(entityId)
+    let dropped = false
+    for (const entityId of new Set([...this._snapshots.keys(), ...this._live.keys()])) {
+      const entity = hass.states[entityId]
+      if (!wanted.has(entityId) || !entity) {
+        this._unsubscribe(entityId)
+        dropped = this._forget(entityId) || dropped
+      } else if (!isSubscribable(entity)) {
+        this._unsubscribe(entityId)
+      }
     }
 
     // Not awaited, unlike `CalendarFeed`'s: the rows are mapped at publish, so a colour
@@ -283,15 +324,15 @@ export class TodoFeed {
     void this._colors.reconcile(hass, entityIds)
 
     // One publish for the whole reconcile, and before the new subscriptions rather than
-    // after: deselecting a list has to take its rows with it now, and the lists that
-    // stayed may have been re-coloured by the ones that left.
-    if (moved) this._publish()
+    // after: a list that left has to take its rows with it now, and the lists that stayed
+    // may have been re-coloured by its going.
+    if (moved || dropped) this._publish()
 
     // Claimed before the first await, so a reconcile arriving in the gap sees them as
     // taken. The token travels with the claim because by the time the subscribe runs the
     // entry under this id may belong to a later reconcile.
     const claims = entityIds
-      .filter(id => !this._live.has(id))
+      .filter(id => !this._live.has(id) && isSubscribable(hass.states[id]))
       .map(entityId => {
         const token = {}
         this._live.set(entityId, { token })
@@ -302,23 +343,16 @@ export class TodoFeed {
   }
 
   /**
-   * Called when the card leaves the DOM, when it is drawing fixtures, and on every
-   * reconcile while reminders are switched off, which is why it answers early when there
-   * is nothing to stop. Publishing an empty list over an empty list is a repaint for
-   * nothing, and this one would be doing it per state change.
+   * Called when the card leaves the DOM and while it draws fixtures.
+   *
+   * Closes every subscription and the colour watch, keeps every row and publishes nothing,
+   * for the reasons `CalendarFeed.stop` gives: a card that was only moved comes back through
+   * `reconcile` holding what it had. Switching reminders off is not this. It is a reconcile
+   * onto no lists, which is what takes the rows away.
    */
   public stop(): void {
-    // Above the guard below, and idempotent, so a card that switches reminders off closes
-    // its registry watch even when it had no rows to clear.
     this._colors.stop()
-
-    if (!this._live.size && !this._snapshots.size && !this._order.length) return
-
-    this._order = []
-    this._orderKey = ''
-    for (const entityId of [...this._live.keys()]) this._close(entityId)
-    this._snapshots.clear()
-    this._publish()
+    for (const entityId of [...this._live.keys()]) this._unsubscribe(entityId)
   }
 
   private async _subscribe(hass: HomeAssistant, entityId: string, token: object): Promise<void> {
@@ -338,8 +372,9 @@ export class TodoFeed {
       live.unsubscribe = unsubscribe
     } catch (error) {
       // Home Assistant refusing the command rather than a dropped connection:
-      // `invalid_entity_id` for a list that is not there, which is what a config pointing
-      // at a deleted list looks like. It costs that list's rows and nothing else.
+      // `invalid_entity_id` for a list that is not there, which is what a list removed
+      // since the state that said it was there looks like. It costs that list's rows and
+      // nothing else.
       if (this._live.get(entityId)?.token === token) this._live.delete(entityId)
       console.warn(`[cupertino-widgets] cannot read ${entityId}`, error)
     }
@@ -350,7 +385,12 @@ export class TodoFeed {
     // delivering for it. An unsubscribe is itself a round trip.
     if (this._live.get(entityId)?.token !== token) return
 
-    this._snapshots.set(entityId, Array.isArray(push?.items) ? push.items : [])
+    const items = Array.isArray(push?.items) ? push.items : []
+    const source = JSON.stringify(items)
+    if (this._sources.get(entityId) === source) return
+
+    this._snapshots.set(entityId, items)
+    this._sources.set(entityId, source)
     this._publish()
   }
 
@@ -366,12 +406,19 @@ export class TodoFeed {
     this._onChange(items)
   }
 
-  private _close(entityId: string): void {
+  /** Close one list's subscription and leave its rows where they are. */
+  private _unsubscribe(entityId: string): void {
     const live = this._live.get(entityId)
+    if (!live) return
     this._live.delete(entityId)
-    this._snapshots.delete(entityId)
     // Nothing to do about a failed unsubscribe: the socket may already be gone, which is
     // the case that closed the subscription for us.
-    void live?.unsubscribe?.().catch(() => {})
+    void live.unsubscribe?.().catch(() => {})
+  }
+
+  /** Take one list's rows off the card, answering whether it had any to take. */
+  private _forget(entityId: string): boolean {
+    this._sources.delete(entityId)
+    return this._snapshots.delete(entityId)
   }
 }
