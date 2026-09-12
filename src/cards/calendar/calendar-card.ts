@@ -521,7 +521,7 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
    */
   protected override watchedEntities(): string[] {
     const calendars = calendarsFor(this._config?.entities, this.hass)
-    if (!remindersEnabled(this._config?.show_reminders)) return calendars
+    if (!remindersEnabled(this._config?.show_reminders)) return [...calendars]
     return [...calendars, ...todoListsFor(this._config?.todo_entities, this.hass)]
   }
 
@@ -555,20 +555,16 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
    * The to-do half, which has one question in front of it the calendars do not.
    *
    * Switched off means not subscribed at all rather than subscribed and filtered: the
-   * cheapest way to draw no reminders is to not ask Home Assistant for them, and `stop`
-   * is what takes the rows already on screen away with it.
+   * cheapest way to draw no reminders is to not ask Home Assistant for them. It is a
+   * reconcile onto no lists rather than a `stop`, because deselecting every list is what
+   * takes the rows already on screen away with it, and `stop` keeps them for a card that is
+   * only being moved.
    */
   private async _reconcileTodos(hass: HomeAssistant): Promise<void> {
-    if (!remindersEnabled(this._config?.show_reminders)) {
-      this._todos.stop()
-      return
-    }
-
-    await this._todos.reconcile(
-      hass,
-      todoListsFor(this._config?.todo_entities, hass),
-      this._timeZone,
-    )
+    const lists = remindersEnabled(this._config?.show_reminders)
+      ? todoListsFor(this._config?.todo_entities, hass)
+      : []
+    await this._todos.reconcile(hass, lists, this._timeZone)
   }
 
   /** Wakes on the minute rather than every 60s, so the card and the clock agree. */

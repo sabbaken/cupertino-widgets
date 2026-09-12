@@ -357,12 +357,17 @@ export class EntityColors {
    * Publishes nothing: the only caller is a card on its way out, so there is nobody to
    * tell, and `connectedCallback` reconciles again with `_key` cleared, which is what makes
    * a card dragged from one section to another reload rather than sit on stale colours.
+   *
+   * The colours themselves stay until that reload answers, and it is the reload that
+   * replaces them. Cleared here, a card coming back was colourless for a round trip: the
+   * answer always differed from the empty map and repainted for nothing, and a row mapped
+   * before it landed was drawn in the palette and then in its own colour. The calendar card
+   * holds its rows over a move, so that was a flash on a card with nothing else changing.
    */
   public stop(): void {
     this._revision += 1
     this._key = undefined
     this._ids = []
-    this._colors.clear()
     this._closeWatch()
   }
 
