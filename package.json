@@ -11,7 +11,7 @@
   },
   "homepage": "https://github.com/sabbaken/cupertino-widgets",
   "bugs": "https://github.com/sabbaken/cupertino-widgets/issues",
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@12.4.1",
   "engines": {
     "node": ">=22"
   },
