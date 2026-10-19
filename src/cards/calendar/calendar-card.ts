@@ -383,14 +383,21 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
         background: var(--item-accent);
       }
 
-      /* A reminder is a thing you tick off, so it gets a tickable-looking circle. */
+      /* Centre the circle on the 22px title line, using its actual height because the
+         border rounds at fractional scales. Centring it on the whole row instead drops
+         it between the title and time whenever both are present. Border-box keeps the
+         heavier outline inside the same diameter rather than pushing the text along. */
       .bullet {
         flex: none;
-        align-self: center;
-        width: calc(13px * var(--cw-scale));
-        height: calc(13px * var(--cw-scale));
+        align-self: flex-start;
+        position: relative;
+        top: calc(11px * var(--cw-scale));
+        transform: translateY(-50%);
+        box-sizing: border-box;
+        width: calc(16px * var(--cw-scale));
+        height: calc(16px * var(--cw-scale));
         border-radius: 50%;
-        border: calc(1.5px * var(--cw-scale)) solid var(--item-accent);
+        border: calc(2px * var(--cw-scale)) solid var(--item-accent);
       }
 
       .body {

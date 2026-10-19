@@ -39,7 +39,10 @@ time. Four things in the calendar's colour and no two of them the same shade of 
 palette below is how the four come out of the one colour Home Assistant holds.
 
 **Reminder**: a neutral grey background, an empty circle in the list's colour, muted
-text. Reminders never show a location.
+text. Reminders never show a location. The circle stays centred on the title line,
+including when a time line follows; centring it on the whole row would lower it between
+the two lines. Its 2px outline sits inside a 16px outer diameter: the thinner 1.5px
+outline looked faint at this size, while growing the circle would shift the text.
 
 **A reminder with a date and no time**: the same row with the time line gone, so one line
 and 24px, priced exactly like an all-day event (§4). It keeps its circle rather than taking
