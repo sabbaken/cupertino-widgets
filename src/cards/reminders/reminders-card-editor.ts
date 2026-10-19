@@ -1,6 +1,14 @@
+import { mdiTune } from '@mdi/js'
 import type { PropertyValues } from 'lit'
 import { state } from 'lit/decorators.js'
 
+import {
+  BLOCKLIST_FIELD,
+  BLOCKLIST_HELPER,
+  BLOCKLIST_LABEL,
+  BLOCKLIST_ROW,
+  blocklistTerms,
+} from '../../core/blocklist'
 import { CupertinoCardEditor, applyFormData } from '../../core/card-editor'
 import { colorUpdateMessage, fetchColorOptions, type ColorOptions } from '../../core/entity-color'
 import { defineElement } from '../../core/register'
@@ -57,7 +65,7 @@ const chosenColor = (value: unknown): string | undefined =>
   typeof value === 'string' && value !== '' && value !== NONE ? value : undefined
 
 /**
- * The reminders card's visual editor: which list, what colour, then the shared **Scale**.
+ * The reminders card's editor: which list, what colour, then **Scale** and **Advanced**.
  *
  * Everything else about how the card is drawn it works out from the box the Layout tab put
  * it in and that one factor; see `docs/reminders-widget-rules.md`. There is in particular no
@@ -117,6 +125,21 @@ class CupertinoRemindersCardEditor extends CupertinoCardEditor<RemindersCardConf
     return this._config?.entity ? [LIST_ROW, COLOR_ROW] : [LIST_ROW]
   }
 
+  /** Open when filtering is active so a return visit explains the missing rows. */
+  protected override trailingFields(): readonly HaFormSchema[] {
+    return [
+      {
+        name: 'advanced',
+        type: 'expandable',
+        flatten: true,
+        title: 'Advanced',
+        iconPath: mdiTune,
+        expanded: blocklistTerms(this._config?.blocklist).length > 0,
+        schema: [BLOCKLIST_ROW],
+      },
+    ]
+  }
+
   /** The stored colour, shown in a row the config knows nothing about. */
   protected override toForm(config: RemindersCardConfig): Record<string, unknown> {
     return { ...config, [COLOR_FIELD]: storedColor(this._options) ?? '' }
@@ -155,6 +178,8 @@ class CupertinoRemindersCardEditor extends CupertinoCardEditor<RemindersCardConf
         return 'List'
       case COLOR_FIELD:
         return 'Colour'
+      case BLOCKLIST_FIELD:
+        return BLOCKLIST_LABEL
       default:
         return super.label(schema)
     }
@@ -171,6 +196,8 @@ class CupertinoRemindersCardEditor extends CupertinoCardEditor<RemindersCardConf
         // edit the card. Somebody who moves the widget, or adds a second one, should not be
         // surprised that the colour came along.
         return 'Kept on the list itself, so every widget showing it agrees.'
+      case BLOCKLIST_FIELD:
+        return BLOCKLIST_HELPER
       default:
         return super.helper(schema)
     }

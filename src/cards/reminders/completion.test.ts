@@ -43,6 +43,24 @@ const drawn = (list: ReminderList): string[] =>
 const MILK = aThingToDo('Buy milk')
 const VET = aThingToDo('Ring the vet')
 
+describe('the block list', () => {
+  it('excludes hidden reminders from both the rows and the count', () => {
+    const list = listFor([MILK, VET], NO_PINS, TAP, 'MILK')
+    expect(drawn(list)).toEqual(['[ ] Ring the vet'])
+    expect(list.count).toBe(1)
+  })
+
+  it('hides a pinned row and restores its linger when the filter is cleared', () => {
+    const pins = tapped(NO_PINS, MILK, TAP)
+    expect(drawn(listFor([MILK, VET], pins, TAP, 'milk'))).toEqual(['[ ] Ring the vet'])
+    expect(drawn(listFor([MILK, VET], pins, TAP))).toEqual(['[x] Buy milk', '[ ] Ring the vet'])
+  })
+
+  it('returns an empty list with zero count when every title is hidden', () => {
+    expect(listFor([MILK, VET], NO_PINS, TAP, 'milk, vet')).toEqual({ rows: [], count: 0 })
+  })
+})
+
 describe('the tick under the finger', () => {
   /**
    * The tap draws itself. Nothing here waits for a snapshot, which is the whole point of the

@@ -5,6 +5,7 @@
  *
  * The rules, in order:
  *
+ *  0. titles matching this card's block list are absent, even from the finished-day test;
  *  1. the card's own window of days, and nothing outside it: the **anchor day**, which is
  *     today unless `day_offset` moves it, and the `days_to_show` days from there;
  *  2. anything the clock has overtaken is dropped, which is halfway through a meeting
@@ -19,6 +20,7 @@
  *     which day it is.
  */
 
+import { filterBlocked } from '../../core/blocklist'
 import { dayNumber, dayStart } from './datetime'
 import { sectionHeading, type FormatContext } from './format'
 import { isOver, lastDay, type CalendarItem } from './model'
@@ -87,6 +89,7 @@ export const dayWindow = (
 export interface FlowOptions {
   now: Date
   ctx: FormatContext
+  blocklist?: string | undefined
   /** Days from today to the anchor day. See `DayWindow`. */
   offsetDays?: number
   /**
@@ -139,7 +142,7 @@ export function buildFlow(items: readonly CalendarItem[], options: FlowOptions):
   // Only interesting when nothing is left: it is what tells an empty anchor day from a
   // finished one.
   let anyFinishedOnAnchor = false
-  for (const item of items) {
+  for (const item of filterBlocked(items, options.blocklist)) {
     const startDay = dayNumber(item.start, ctx.timeZone)
     // The last day it is still on, read off an exclusive end (the essay is on `lastDay`).
     // Something with no end is a moment rather than a span, so it begins and ends on the

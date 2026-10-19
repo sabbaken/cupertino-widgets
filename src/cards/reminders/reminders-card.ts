@@ -56,6 +56,8 @@ export interface RemindersCardConfig extends CupertinoCardConfig {
    * one is a portrait of a single list.
    */
   entity?: string
+  /** Comma-separated title fragments hidden in this card only. See `core/blocklist.ts`. */
+  blocklist?: string
 }
 
 /**
@@ -668,7 +670,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
     if (entityId === undefined || !listExists(this.hass, entityId)) return this._renderBlank()
 
     const geometry = geometryFor({ width: this.boxWidth, height: this.boxHeight }, this.scaleFactor)
-    const list = listFor(this._items ?? [], this._pins, Date.now())
+    const list = listFor(this._items ?? [], this._pins, Date.now(), this._config.blocklist)
     const name = listName(this.hass, entityId)
     const badge = this._renderBadge(name, listIcon(this.hass, entityId))
     const identity = this._renderIdentity(name, this._items === undefined ? undefined : list.count)

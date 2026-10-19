@@ -220,6 +220,20 @@ is most of a real list, so this is the rule that keeps a shopping list from arri
 wall of undated rows. A due date with no time on it is a day (§1); a due time is a moment
 and prints like one.
 
+### Block list
+
+`blocklist` is an optional comma-separated string in this card's config. The editor puts
+one text box in **Advanced**, with `lunch, school run` as an example. Each trimmed entry
+matches literal text anywhere in an event or reminder title, ignoring case. Any match
+hides the row. Empty entries are ignored; an empty or absent string hides nothing.
+Commas separate entries and cannot be part of a phrase.
+
+The filter runs before the day flow, including the finished-day test. Hidden rows create
+no headings, consume no room and contribute nothing to a `more` row or the empty-day
+wording. Filtering after packing would leave gaps and count events the card does not show.
+The source rows stay intact, so changing the filter takes effect without resubscribing.
+Other cards and the underlying calendars and to-do lists keep their own contents.
+
 ### Which days
 
 The card is about **today and the fortnight after it**, and two options move that window.

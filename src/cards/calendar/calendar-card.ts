@@ -42,6 +42,8 @@ export interface CalendarCardConfig extends CupertinoCardConfig {
    * exactly as `entities` does for the calendars.
    */
   todo_entities?: string[]
+  /** Comma-separated title fragments hidden in this card only. See `core/blocklist.ts`. */
+  blocklist?: string
   /**
    * The clock this card prints times in, over the top of the Home Assistant profile.
    *
@@ -738,6 +740,7 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
       ctx,
       offsetDays: window.offsetDays,
       spanDays: mode === 'small' ? 1 : window.spanDays,
+      blocklist: this._config.blocklist,
     })
     // The scale goes in as a factor, not as scaled constants: `layout.ts` prices rows in
     // design units and divides the box it was handed, so the budget shrinks as the type

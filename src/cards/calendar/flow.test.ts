@@ -34,6 +34,40 @@ interface FlowWindow {
 /** The window the small size passes: the day it is anchored on and no other. */
 const ONE_DAY = { spanDays: 1 }
 
+describe('the block list', () => {
+  it('hides events and reminders before creating day headings', () => {
+    const reminder: CalendarItem = {
+      ...event('School run', '2026-07-25T10:00:00+02:00'),
+      kind: 'reminder',
+      entityId: 'todo.family',
+    }
+    const flow = buildFlow(
+      [
+        event('Team lunch', '2026-07-24T13:00:00+02:00'),
+        reminder,
+        event('Walk', '2026-07-26T14:00:00+02:00'),
+      ],
+      { now: NOW, ctx, blocklist: 'LUNCH, school run' },
+    )
+    expect(flow.nodes.map(node => (node.type === 'item' ? node.item.title : node.type))).toEqual([
+      'header',
+      'Walk',
+    ])
+    expect(flow.anchorEmpty).toBe(true)
+    expect(flow.anchorDone).toBe(false)
+  })
+
+  it('does not describe a hidden finished event as a finished day', () => {
+    const flow = buildFlow(
+      [event('Team lunch', '2026-07-24T09:00:00+02:00', '2026-07-24T10:00:00+02:00')],
+      { now: NOW, ctx, blocklist: 'lunch' },
+    )
+    expect(flow.nodes).toEqual([])
+    expect(flow.anchorEmpty).toBe(true)
+    expect(flow.anchorDone).toBe(false)
+  })
+})
+
 describe('selection', () => {
   it('drops what has finished and keeps what is still running', () => {
     const items = [

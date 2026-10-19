@@ -1,5 +1,12 @@
 import { mdiTune } from '@mdi/js'
 
+import {
+  BLOCKLIST_FIELD,
+  BLOCKLIST_HELPER,
+  BLOCKLIST_LABEL,
+  BLOCKLIST_ROW,
+  blocklistTerms,
+} from '../../core/blocklist'
 import { CupertinoCardEditor } from '../../core/card-editor'
 import { defineElement } from '../../core/register'
 import type { HaFormSchema } from '../../core/types/ha'
@@ -32,7 +39,7 @@ const TODO_LISTS_KEY = 'panel.todo'
 /**
  * Four rows of the card's own, and it took a detour to get here. (A fifth, **Scale**,
  * arrives from `CupertinoCardEditor` under them, since it belongs to every card in the
- * library rather than to this one, and two more are folded away in **Advanced** under
+ * library rather than to this one, and three more are folded away in **Advanced** under
  * that: see `advancedSection`.)
  *
  * There was a `size` row as well: two tiles, Small and Medium, each with a line of copy.
@@ -119,11 +126,11 @@ const SPAN_ROW: HaFormSchema = {
 }
 
 /**
- * The two rows above, folded away behind a disclosure triangle.
+ * The two window rows above and the title filter, behind a disclosure triangle.
  *
- * A section rather than two more rows in the list, because of who is looking: every row
- * above it is a question a user of this card has to answer, and these two are a question
- * almost nobody has. Left in the open they would read as two more things to decide before
+ * A section rather than more rows in the list, because of who is looking: every row
+ * above it is a question a user of this card has to answer, and these are a question
+ * almost nobody has. Left in the open they would read as more things to decide before
  * the card works, which is what an Advanced section exists to say they are not. It is the
  * last thing in the dialog for the same reason, **Scale** included; see `trailingFields`.
  * `flatten` keeps the config flat behind it; see `HaFormExpandable`.
@@ -137,7 +144,8 @@ const SPAN_ROW: HaFormSchema = {
  * reason it is written this way: `defaults()` writes both keys through on the first edit
  * anywhere in the form, so a test for presence would have the section spring open the
  * moment somebody changed the clock. Reading the window instead means the flag only ever
- * changes when there is something in there to see.
+ * changes when there is something in there to see. A non-empty block list opens it too,
+ * since otherwise missing events would have no explanation in the editor.
  */
 const advancedSection = (config: CalendarCardConfig | undefined): HaFormSchema => {
   const { offsetDays, spanDays } = dayWindow(config)
@@ -147,8 +155,11 @@ const advancedSection = (config: CalendarCardConfig | undefined): HaFormSchema =
     flatten: true,
     title: 'Advanced',
     iconPath: mdiTune,
-    expanded: offsetDays !== 0 || spanDays !== DEFAULT_DAY_SPAN,
-    schema: [OFFSET_ROW, SPAN_ROW],
+    expanded:
+      offsetDays !== 0 ||
+      spanDays !== DEFAULT_DAY_SPAN ||
+      blocklistTerms(config?.blocklist).length > 0,
+    schema: [OFFSET_ROW, SPAN_ROW, BLOCKLIST_ROW],
   }
 }
 
@@ -234,6 +245,8 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
         return 'First day'
       case 'days_to_show':
         return 'Days shown'
+      case BLOCKLIST_FIELD:
+        return BLOCKLIST_LABEL
       default:
         return super.label(schema)
     }
@@ -263,6 +276,8 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
         // The pair, read back as a sentence. This is what makes two numbers a feature
         // rather than a puzzle: see `windowSummary`.
         return windowSummary(this._window, new Date(), this._ctx)
+      case BLOCKLIST_FIELD:
+        return BLOCKLIST_HELPER
       default:
         return super.helper(schema)
     }

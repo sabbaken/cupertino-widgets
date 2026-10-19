@@ -32,6 +32,7 @@
  * node: the element owns the clock and the timer, this owns the rules.
  */
 
+import { filterBlocked } from '../../core/blocklist'
 import { COMPLETED, type ReminderItem, type ReminderStatus } from './model'
 
 /**
@@ -149,10 +150,9 @@ export interface ReminderList {
   /**
    * The number over the name: how many things are still to do.
    *
-   * Counted from the same snapshot the rows come from, and not read off the entity's state,
-   * even though the state is exactly this number
-   * (`sum(item.status == NEEDS_ACTION)`, stringified). Two reasons, and the second is the
-   * one that decides it:
+   * Counted from the same filtered snapshot the rows come from. The entity's state is
+   * `sum(item.status == NEEDS_ACTION)`, stringified, and cannot know a card's block list.
+   * Two further reasons to count here, and the second is the one that decides it:
    *
    *  - the state counts `needs_action` alone, so an item whose `status` is `null` is drawn
    *    by this card and counted by nothing, and a widget whose number disagrees with the
@@ -172,17 +172,19 @@ export interface ReminderList {
  * The rows and the count, from the list and the pins.
  *
  * One pass, because the count is not `rows.length`: a row being held after a tick is drawn
- * and is not something still to do.
+ * and is not something still to do. The card's block list is applied before either, so
+ * even a pinned row is absent when its title is hidden.
  */
 export const listFor = (
   items: readonly ReminderItem[],
   pins: PinSet,
   now: number,
+  blocklist?: string,
 ): ReminderList => {
   const rows: ReminderRow[] = []
   let count = 0
 
-  for (const item of items) {
+  for (const item of filterBlocked(items, blocklist)) {
     const pin = livePin(pins, item.id, now)
     const status = pin?.status ?? item.status
 

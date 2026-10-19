@@ -73,6 +73,20 @@ the two a tap opened. Two lists are two cards, which is also how the reference d
 the opposite choice from the calendar card's `todo_entities`, and the two are consistent: that
 card pours several lists into one flow of days, and this one is a portrait of a single list.
 
+### Block list
+
+`blocklist` is an optional comma-separated string in this card's config, edited in one
+text box under **Advanced**. Its rules match the calendar card: trim each entry, ignore
+empty entries, and hide a row if its title contains any entry as literal text, ignoring
+case. `lunch, school run` hides either phrase; commas always separate entries.
+
+Filtering precedes the count and row budget, including rows held by a completion pin.
+The count therefore describes the unhidden things still to do, and a fully filtered list
+draws `0` and `No Reminders`. Counting first would leave a number with no rows to explain
+it. Source items and pins are retained, so clearing the filter restores the current list
+and any linger that is still live. The setting belongs to this card alone and writes
+nothing to the list or its entity registry options.
+
 ## 2. What each size shows
 
 The three are the reference's three, and the differences between them are differences of
@@ -147,9 +161,10 @@ instead, because a row is a line of text and a circle.
 
 ## 4. The count, and where it comes from
 
-The number over the name is counted from **the same snapshot the rows come from**, adjusted by
-the pins of §5. It is deliberately not read off the entity's state, even though the state is
-exactly this number: `TodoListEntity.state` is `sum(item.status == NEEDS_ACTION)`, stringified.
+The number over the name is counted from **the same snapshot the rows come from**, after
+the block list of §1 and adjusted by the pins of §5. It is deliberately not read off the
+entity's state: `TodoListEntity.state` is `sum(item.status == NEEDS_ACTION)`, stringified,
+and knows nothing about a card's filter.
 
 Two reasons, and the second is the one that decides it.
 

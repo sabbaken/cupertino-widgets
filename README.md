@@ -225,8 +225,10 @@ are drawn beside the events; **To-do lists**, which lists those come from; **Clo
 format it prints times in; and **Scale**, how large to draw it. Leave all of them alone and
 you get every calendar, every to-do list, your Home Assistant time format, and 100%.
 
-Two more are folded into **Advanced**, and you can leave those alone too: **First day** and
-**Days shown**, which are below.
+Three more are folded into **Advanced**, and you can leave those alone too: **First day**,
+**Days shown** and **Block list**. In **Block list**, enter words or phrases separated by
+commas, for example `lunch, school run`. Events and reminders whose titles contain any
+entry are hidden in this card only, ignoring case. Leave it empty to show everything.
 
 The equivalent YAML, if you prefer it:
 
@@ -241,6 +243,7 @@ todo_entities: # optional; leave it out for every to-do list
 time_format: system # optional; system | 12 | 24
 day_offset: 0 # optional; 1 is tomorrow, -1 is yesterday
 days_to_show: 14 # optional; 1 pins the card to that one day
+blocklist: 'lunch, school run' # optional; hide matching titles in this card only
 scale: 100 # optional; 80–130, percent
 ```
 
@@ -252,6 +255,7 @@ scale: 100 # optional; 80–130, percent
 | `time_format`    | `system`         | `system` follows your profile; `12` or `24` overrides it.        |
 | `day_offset`     | `0`              | Which day the card starts on, counted from today. −31 to 31.     |
 | `days_to_show`   | `14`             | How many days it covers, counting the first. 1 to 31.            |
+| `blocklist`      | empty            | Comma-separated title fragments to hide, ignoring case.          |
 | `scale`          | `100`            | Percent. Draws the whole widget larger or smaller. 80–130.       |
 
 `12`, `24`, `scale`, `day_offset` and `days_to_show` are read whether or not you quote them.
@@ -352,16 +356,23 @@ A picker, a **Colour**, then **Scale**. Choose the to-do list and there is littl
 answer: the name on the card, the number over it, the glyph on the badge and how many rows fit
 are all worked out from the list and the box.
 
+**Advanced → Block list** accepts words or phrases separated by commas, for example
+`lunch, school run`. Items whose titles contain any entry are hidden in this card only,
+ignoring case, and excluded from its count. Leave it empty to show everything. Each card
+keeps its own block list, so two cards showing the same list can show different items.
+
 ```yaml
 type: custom:cupertino-widgets-reminders
 entity: todo.shopping
+blocklist: 'lunch, school run' # optional; hide matching titles in this card only
 scale: 100 # optional; 80–130, percent
 ```
 
-| Option   | Default | Meaning                                                    |
-| -------- | ------- | ---------------------------------------------------------- |
-| `entity` | none    | The `todo` list this card is about. One list per card.     |
-| `scale`  | `100`   | Percent. Draws the whole widget larger or smaller. 80–130. |
+| Option      | Default | Meaning                                                    |
+| ----------- | ------- | ---------------------------------------------------------- |
+| `entity`    | none    | The `todo` list this card is about. One list per card.     |
+| `blocklist` | empty   | Comma-separated title fragments to hide, ignoring case.    |
+| `scale`     | `100`   | Percent. Draws the whole widget larger or smaller. 80–130. |
 
 **The colour is kept on the list, not on the card**, which is why it is missing from the YAML
 above. Home Assistant has no colour of its own for a to-do list, so this library stores yours
