@@ -62,14 +62,14 @@ top, the day that goes without a heading, and the line a quiet day shows.
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/calendar-medium.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-medium.png" width="420"
            alt="A medium calendar card: Friday 24, Design review and Lunch with Anna in the left column, Dentist and tomorrow's Market run in the right, then 2 more events">
       <br />
       <sub><b>Medium.</b> A full day, then tomorrow. <code>Dentist</code> is still today;
       the flow simply ran out of left column.</sub>
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/calendar-small.png" width="222"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-small.png" width="222"
            alt="A small square calendar card: Friday 24, an all-day Poznań trip, Standup, and 1 more event">
       <br />
       <sub><b>Small.</b> Today and nothing else, ever. The badge is an all-day event, which
@@ -78,14 +78,14 @@ top, the day that goes without a heading, and the line a quiet day shows.
   </tr>
   <tr>
     <td align="center" valign="top">
-      <img src="docs/images/calendar-empty-today.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-empty-today.png" width="420"
            alt="A medium calendar card: No Events Today on the left, tomorrow's Market run and Coffee with Marta on the right">
       <br />
       <sub><b>A quiet day.</b> Nothing today, so it says so, and rather than leave the
       other column empty as well, the flow starts there with tomorrow.</sub>
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/calendar-dark.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-dark.png" width="420"
            alt="A medium calendar card on a dark theme: Design review today in the left column, and a SUNDAY, JUL 26 heading over Market run and Coffee with Marta in the right, then 1 more event">
       <br />
       <sub><b>Dark theme.</b> It follows the one you picked in Home Assistant. Tomorrow is
@@ -111,14 +111,14 @@ in the wide one.
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/battery-medium.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-medium.png" width="420"
            alt="A medium battery card: four green rings with a phone at 72%, a watch at 41% charging, earbuds at 8% and a tablet at 100% charging">
       <br />
       <sub><b>Medium.</b> Four devices fit one row, so they keep their percentages. The bolts
       are the two on a charger.</sub>
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/battery-small.png" width="222"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-small.png" width="222"
            alt="A small square battery card: two green rings, a phone at 72% and a watch at 41% charging">
       <br />
       <sub><b>Small.</b> One or two devices in the square is the left half of the medium card,
@@ -127,7 +127,7 @@ in the wide one.
   </tr>
   <tr>
     <td align="center" valign="top">
-      <img src="docs/images/battery-compact.png" width="222"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-compact.png" width="222"
            alt="A small square battery card: four green rings without percentages, in a two by two grid">
       <br />
       <sub><b>Three or more in the square.</b> The percentages come off and the grid closes up;
@@ -135,7 +135,7 @@ in the wide one.
       it.</sub>
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/battery-dark.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-dark.png" width="420"
            alt="A medium battery card on a dark theme: four rings reading 72%, 41% charging, 22% and a dash, the last one an empty ring with a dimmed doorbell icon">
       <br />
       <sub><b>Dark theme.</b> It follows the one you picked in Home Assistant. The last ring is
@@ -160,14 +160,14 @@ or the badge and the to-do panel opens on that list.
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/reminders-medium.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-medium.png" width="420"
            alt="A medium reminders card: a purple home badge over the count 7 and the name Home in a column on the left, and five unticked items on the right beginning with Water the plants">
       <br />
       <sub><b>Medium.</b> The badge, the count and the name are a column beside the rows, which
       leaves the list the full height of the card. Five of the seven fit; the count says so.</sub>
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="docs/images/reminders-small.png" width="222"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-small.png" width="222"
            alt="A small square reminders card: Home in purple on the left of one line with 7 on the right, then four unticked items, three of them truncated">
       <br />
       <sub><b>Small.</b> No room for a badge, so the name and the count share the heading's one
@@ -176,14 +176,14 @@ or the badge and the to-do panel opens on that list.
   </tr>
   <tr>
     <td align="center" valign="top">
-      <img src="docs/images/reminders-large.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-large.png" width="420"
            alt="A large reminders card: the count 7 over the name Home at the top left, a purple home badge at the top right, a hairline, then all seven items across the full width">
       <br />
       <sub><b>Large.</b> Drag it taller and the heading moves above the rows, which is what buys
       them the whole width: the title that was truncated in the wide card fits here.</sub>
     </td>
     <td align="center" valign="top">
-      <img src="docs/images/reminders-dark.png" width="420"
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-dark.png" width="420"
            alt="A medium reminders card on a dark theme: a purple people badge, the count 4 and the name Shared list wrapped over two lines, and four items beginning with Milk, bread and coffee">
       <br />
       <sub><b>Dark theme.</b> It follows the one you picked in Home Assistant. A list shorter

@@ -69,9 +69,11 @@ rules document.
 its favicon, so Vite supplies the GitHub Pages prefix. Run `pnpm brand:icon` after editing
 it to regenerate the transparent 256×256 `icon.png` used at the top of the README.
 
-The README image uses an absolute raw GitHub URL because HACS rewrites Markdown image
-links, but leaves HTML `src` attributes alone. `render_readme: true` in `hacs.json` makes
-that image visible on the project's detail page after the change is published.
+Every README `<img>`, including the icon and gallery screenshots, uses an absolute raw
+GitHub URL because HACS rewrites Markdown image links, but leaves HTML `src` attributes
+alone. Relative paths work on GitHub but break on the HACS detail page, where the base URL
+is Home Assistant's. `render_readme: true` in `hacs.json` makes the README visible there
+after the change is published.
 
 The HACS repository list has a separate limit: dashboard plugins all get the category
 glyph. Its frontend only loads per-project images for integrations, and `hacs.json` has
