@@ -1,3 +1,6 @@
+<img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/icon.png"
+     width="80" height="80" alt="Cupertino Widgets: two white columns on a blue tile">
+
 # Cupertino Widgets
 
 > ## 🚀 Kiryl Viarenich — Senior Full-Stack Developer

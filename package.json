@@ -22,6 +22,7 @@
     "preview:site": "vite preview --mode site",
     "test": "vitest run",
     "shots": "node dev/screenshots.mjs",
+    "brand:icon": "node dev/brand-icon.mjs",
     "watch": "vite build --watch --mode development",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",

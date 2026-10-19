@@ -63,6 +63,24 @@ serving it from a domain root wants `SITE_BASE=/ pnpm build:site`.
 packing, time formatting, row budgets, including the worked examples at the bottom of each
 rules document.
 
+## Project icon and HACS
+
+`icon.svg` is the source for the project's two-column mark. The showcase imports it as
+its favicon, so Vite supplies the GitHub Pages prefix. Run `pnpm brand:icon` after editing
+it to regenerate the transparent 256×256 `icon.png` used at the top of the README.
+
+The README image uses an absolute raw GitHub URL because HACS rewrites Markdown image
+links, but leaves HTML `src` attributes alone. `render_readme: true` in `hacs.json` makes
+that image visible on the project's detail page after the change is published.
+
+The HACS repository list has a separate limit: dashboard plugins all get the category
+glyph. Its frontend only loads per-project images for integrations, and `hacs.json` has
+no icon field. Adding `brand/` or an `icon` key would therefore leave the list unchanged.
+This was checked against HACS on 19 October 2026:
+[list rendering](https://github.com/hacs/frontend/blob/d97dce047de482e6993419aa898f2267cfb5a152/src/dashboards/hacs-dashboard.ts#L373),
+[Markdown rewriting](https://github.com/hacs/frontend/blob/d97dce047de482e6993419aa898f2267cfb5a152/src/tools/markdown.ts),
+and the [supported manifest fields](https://www.hacs.xyz/docs/publish/start/#hacsjson).
+
 ## Against a real Home Assistant
 
 A throwaway Home Assistant lives in `docker-compose.yml`. It is wired so that build
