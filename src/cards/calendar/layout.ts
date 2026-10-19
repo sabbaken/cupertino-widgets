@@ -45,14 +45,42 @@
  *   Small   count first: everything is packed compactly, then locations are added
  *           back top-down out of whatever budget is left over. With four rows total,
  *           a location is a luxury that must not cost you an entire event.
+ *   Single  always two lines: the time moves right, so a location takes the second
+ *           line without an expansion. The same packing and tail rules still apply.
  */
 
+import { LAYOUT_THRESHOLD, layoutFromBox } from '../../core/size'
 import type { FlowNode } from './flow'
 import { hasLocation, type CalendarItem } from './model'
 
 export const COST = { header: 1, compact: 2, expanded: 3, more: 1, allday: 1 } as const
 
-export type LayoutMode = 'small' | 'medium'
+export type LayoutMode = 'small' | 'medium' | 'single'
+
+/**
+ * A large panel needs room in both directions, and a height at least four fifths of
+ * its width. Height alone switched a long band too early; width alone switched the
+ * default wide widget. Reusing core's threshold also keeps a small square small.
+ */
+const SINGLE_MIN_HEIGHT_RATIO = 0.8
+
+export const modeFor = (
+  box: { width: number; height: number },
+  scale = 1,
+  singleColumn?: boolean | 'auto',
+): LayoutMode => {
+  if (singleColumn === true) return 'single'
+  const width = box.width / scale
+  const height = box.height / scale
+  if (
+    singleColumn !== false &&
+    width >= LAYOUT_THRESHOLD &&
+    height >= Math.max(LAYOUT_THRESHOLD, width * SINGLE_MIN_HEIGHT_RATIO)
+  ) {
+    return 'single'
+  }
+  return layoutFromBox(box.width, scale)
+}
 
 /**
  * What an item costs with no location line on it: the least it can be drawn for.
@@ -371,6 +399,10 @@ const ROW = (COMPACT_PX + GAP) / COST.compact
 /** Rendered height of the date block: weekday line + day numeral + its margin. */
 const DATE_BLOCK = 84
 
+/** Single-column date: 16px heading + 12px gap; empty line: 20px + 12px gap. */
+const SINGLE_DATE = 28
+const SINGLE_EMPTY = 32
+
 /** How many rows fit in `space` px. The last row has no gap under it, hence the `+ GAP`. */
 const rowsIn = (space: number): number => Math.max(0, Math.floor((space + GAP) / ROW))
 
@@ -402,6 +434,11 @@ export const geometryFor = (
   const beside = rowsIn(content)
   const below = rowsIn(content - DATE_BLOCK)
 
+  // Locations sit beside the end time in this mode, so packFlow never expands them.
+  // The 24px section heading still fits ROW's one-line ceiling (24 + GAP <= 31).
+  if (mode === 'single') {
+    return { budgets: [rowsIn(content - SINGLE_DATE - (anchorEmpty ? SINGLE_EMPTY : 0))] }
+  }
   if (mode === 'small') return { budgets: [below] }
   // Nothing left on the day the card is anchored on means no left column to fill: the flow
   // starts on the right, under the `No (More) Events` line.

@@ -1,3 +1,8 @@
+/**
+ * The calendar's editor keeps presentation separate from footprint: Single Column
+ * follows the measured box by default, with explicit overrides in either direction.
+ */
+
 import { mdiTune } from '@mdi/js'
 
 import {
@@ -37,7 +42,7 @@ const CALENDARS_KEY = 'ui.panel.lovelace.editor.card.calendar.calendar_entities'
 const TODO_LISTS_KEY = 'panel.todo'
 
 /**
- * Four rows of the card's own, and it took a detour to get here. (A fifth, **Scale**,
+ * Five rows of the card's own, and it took a detour to get here. (A sixth, **Scale**,
  * arrives from `CupertinoCardEditor` under them, since it belongs to every card in the
  * library rather than to this one, and three more are folded away in **Advanced** under
  * that: see `advancedSection`.)
@@ -52,8 +57,8 @@ const TODO_LISTS_KEY = 'panel.todo'
  * helper line.
  *
  * What remains is the questions the card cannot answer for itself: where its rows come
- * from, and which clock to print them on. The clock is here for a narrower reason than the
- * entities are. See `TIME_FORMAT_OPTIONS`.
+ * from, which clock to print them on, and whether to keep one column at every width.
+ * The clock is here for a narrower reason than the entities are. See `TIME_FORMAT_OPTIONS`.
  */
 const CLOCK_LABELS: Record<string, string> = {
   system: 'System',
@@ -72,6 +77,19 @@ const CALENDARS_ROW: HaFormSchema = {
 const REMINDERS_ROW: HaFormSchema = {
   name: 'show_reminders',
   selector: { boolean: {} },
+}
+
+const SINGLE_COLUMN_ROW: HaFormSchema = {
+  name: 'single_column',
+  selector: {
+    select: {
+      options: [
+        { value: 'auto', label: 'Automatic' },
+        { value: 'on', label: 'Always on' },
+        { value: 'off', label: 'Off' },
+      ],
+    },
+  },
 }
 
 const TODO_LISTS_ROW: HaFormSchema = {
@@ -167,9 +185,8 @@ const advancedSection = (config: CalendarCardConfig | undefined): HaFormSchema =
  * The calendar card's visual editor.
  *
  * Where the card's rows come from and which clock it draws them on, plus the library-wide
- * **Scale** the base adds. The footprint belongs to the Layout tab, and everything else
- * about how the card is drawn it works out from the box it ends up in and that one factor;
- * see `docs/calendar-widget-rules.md`.
+ * **Scale** the base adds. The footprint belongs to the Layout tab; Single Column changes
+ * the reading order, and the measured box still decides how many rows fit.
  */
 class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig> {
   /**
@@ -184,13 +201,13 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
    */
   protected override fields(): readonly HaFormSchema[] {
     return remindersEnabled(this._config?.show_reminders)
-      ? [CALENDARS_ROW, REMINDERS_ROW, TODO_LISTS_ROW, CLOCK_ROW]
-      : [CALENDARS_ROW, REMINDERS_ROW, CLOCK_ROW]
+      ? [CALENDARS_ROW, REMINDERS_ROW, TODO_LISTS_ROW, CLOCK_ROW, SINGLE_COLUMN_ROW]
+      : [CALENDARS_ROW, REMINDERS_ROW, CLOCK_ROW, SINGLE_COLUMN_ROW]
   }
 
   /**
    * Under **Scale**, at the very bottom of the dialog, which is what `trailingFields` is
-   * for rather than a fifth entry in `fields()`: see `CupertinoCardEditor`.
+   * for rather than another entry in `fields()`: see `CupertinoCardEditor`.
    */
   protected override trailingFields(): readonly HaFormSchema[] {
     return [advancedSection(this._config)]
@@ -208,6 +225,7 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
     return {
       time_format: 'system',
       show_reminders: true,
+      single_column: 'auto',
       day_offset: offsetDays,
       days_to_show: spanDays,
     }
@@ -230,6 +248,35 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
     return { locale, timeZone: displayTimeZone(this.hass), hour12 }
   }
 
+  /**
+   * Selectors carry strings; existing YAML carries booleans. Keeping that conversion
+   * at the form boundary preserves true/false as explicit choices rather than treating
+   * false as an absent preference and switching it back on when the card grows.
+   */
+  protected override toForm(config: CalendarCardConfig): Record<string, unknown> {
+    return {
+      ...super.toForm(config),
+      single_column:
+        config.single_column === true ? 'on' : config.single_column === false ? 'off' : 'auto',
+    }
+  }
+
+  protected override fromForm(
+    config: CalendarCardConfig,
+    data: Record<string, unknown>,
+    fields: readonly string[],
+  ): CalendarCardConfig {
+    return super.fromForm(
+      config,
+      {
+        ...data,
+        single_column:
+          data.single_column === 'on' ? true : data.single_column === 'off' ? false : 'auto',
+      },
+      fields,
+    )
+  }
+
   /** The default branches hand the shared rows back to the base: see `CupertinoCardEditor`. */
   protected override label(schema: HaFormSchema): string {
     switch (schema.name) {
@@ -241,6 +288,8 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
         return this.hass?.localize(TODO_LISTS_KEY) || 'To-do lists'
       case 'time_format':
         return 'Clock'
+      case 'single_column':
+        return 'Single Column'
       case 'day_offset':
         return 'First day'
       case 'days_to_show':
@@ -263,6 +312,8 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
         return 'Draw to-do items that have a due date alongside your events.'
       case 'todo_entities':
         return 'Leave empty to read every to-do list.'
+      case 'single_column':
+        return 'Automatic uses one column in a large, near-square card. Off keeps the usual layout.'
       case 'time_format':
         // Worth spelling out: "System" is the Home Assistant profile setting, not the
         // operating system's, and the profile's own detection cannot see, for instance,

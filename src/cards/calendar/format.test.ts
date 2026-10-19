@@ -1,9 +1,12 @@
+/** Single-column times name both endpoints independently; inline ranges share a period. */
+
 import { describe, expect, it } from 'vitest'
 
 import type { FrontendLocaleData } from '../../core/types/ha'
 import { timePreferences } from './datetime'
 import {
   TIME_DASH,
+  dateHeading,
   emptyLabel,
   itemTime,
   moreLabel,
@@ -17,6 +20,46 @@ const ctx: FormatContext = { locale: 'en-GB', timeZone: 'Europe/Warsaw', hour12:
 const ctx24: FormatContext = { ...ctx, hour12: false }
 
 const at = (time: string): Date => new Date(`2026-07-24T${time}:00+02:00`)
+
+describe('single column text', () => {
+  it('keeps minutes and both periods when times occupy separate lines', () => {
+    expect(itemTime({ start: at('18:00'), end: at('19:30') }, ctx, 'stacked')).toEqual({
+      kind: 'range',
+      from: { text: '6:00', meridiem: 'PM' },
+      to: { text: '7:30', meridiem: 'PM' },
+    })
+  })
+
+  it('keeps the profile clock and timezone for stacked times', () => {
+    expect(itemTime({ start: at('18:00'), end: at('19:30') }, ctx24, 'stacked')).toEqual({
+      kind: 'range',
+      from: { text: '18:00' },
+      to: { text: '19:30' },
+    })
+    expect(itemTime({ start: at('18:00') }, { ...ctx24, timeZone: 'UTC' }, 'stacked')).toEqual({
+      kind: 'point',
+      at: { text: '16:00' },
+    })
+  })
+
+  it('keeps a leading period on each endpoint in locales that use one', () => {
+    const time = itemTime(
+      { start: at('13:00'), end: at('14:00') },
+      { ...ctx, locale: 'ja' },
+      'stacked',
+    )
+    expect(time).toMatchObject({
+      from: { text: '1:00', meridiemFirst: true },
+      to: { text: '2:00', meridiemFirst: true },
+    })
+  })
+
+  it('prints a full date in the locale order and display zone', () => {
+    expect(dateHeading(at('00:00'), ctx)).toBe('FRIDAY, 24 JUL')
+    expect(dateHeading(at('00:00'), { ...ctx, locale: 'en-US' })).toBe('FRIDAY, JUL 24')
+    expect(dateHeading(at('00:00'), { ...ctx, timeZone: 'UTC' })).toBe('THURSDAY, 23 JUL')
+  })
+})
 
 /** Flattens the render tokens back into the string a reader would see. */
 const render = (start: string, end?: string, context = ctx, allDay = false): string => {

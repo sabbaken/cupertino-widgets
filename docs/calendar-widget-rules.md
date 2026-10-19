@@ -9,6 +9,11 @@ Two sizes, matching the two Apple offers on a home screen:
 - **small**: the anchor day, and nothing else, ever
 - **medium**: two columns of one continuous flow: the anchor day plus what comes after it
 
+These are the default presentation for small squares and wide cards. A large, near-square
+box automatically uses **Single Column**, keeping the configured day window in one column.
+Its differences and overrides are specified in §4a; the default rules below apply unless
+that section overrides them.
+
 The **anchor day** is today, and is today on every card that has not been told otherwise.
 §2 has the option that moves it and what moves with it; everywhere else in this document,
 read "today" as "the anchor day" unless the sentence is about the clock.
@@ -253,8 +258,8 @@ for: three of these side by side, reading yesterday, today and tomorrow.
 
 Both are clamped to ±31 days and 1–31 days, which is the range the editor's two boxes
 offer, so hand-written YAML has nothing to reach for that the dialog cannot show. The
-small size ignores `days_to_show` and draws one day, exactly as it has always ignored what
-tomorrow holds (§4).
+small size in the default presentation ignores `days_to_show` and draws one day, exactly
+as it has always ignored what tomorrow holds (§4). Single Column honours the whole window.
 
 **A day in the past is drawn whole.** Rule 2 below retires a row the clock has overtaken,
 and applying it to a day already gone would empty the card: everything on yesterday is
@@ -356,6 +361,47 @@ Only then does the line become `No More Events Today`; using `No Events Today` i
 would say there had been nothing on the day at all. An entry with no end time never retires
 and so never produces the line, and the end that dates a retired row is the exclusive one:
 an all-day entry for yesterday ends at today's midnight and is still yesterday's.
+
+## 4a. Single Column
+
+The editor's **Single Column** control defaults to **Automatic** (`single_column: auto`,
+also the meaning of an absent key). It changes the presentation rather than the footprint:
+Home Assistant still owns the box, and Scale still scales the whole widget. **Always on**
+(`true`) forces one column at any size; **Off** (`false`) retains the usual width-based
+layout even in a large square. Existing explicit booleans keep their meaning through edits.
+
+Automatic compares both measured dimensions in design units, divided by Scale. Both must
+reach `LAYOUT_THRESHOLD` (340), and the height must be at least 80% of the width. Testing
+only height switched a wide band into a list; testing only width switched the default
+500×248 card. The proportion makes this a large panel rather than a band: 500×376 keeps
+two columns, while 500×440 and 500×504 use one. A 246×248 square and a tall 246×504 card
+stay small. These boundaries and the two explicit overrides are tested in `layout.test.ts`.
+
+A narrow box forced to one column uses the same selected day window as a wide one, because
+the full width and the shorter date line make room for later days without a second column.
+
+The anchor date becomes one red line, `MONDAY, 19 OCT`, in place of the weekday and large
+numeral. Every later day uses the same full-date format in grey, including tomorrow.
+Dates follow the display timezone and the locale's day/month order. The empty line stays
+below the anchor date, on one line, and later days continue beneath it. Long headings and
+the empty line truncate rather than wrapping and changing the budget.
+
+A timed event has its title on the left, its location beneath that when present, and its
+start and end times stacked on the right. The start shares the title's colour; the end
+shares the location's quieter colour. Each endpoint keeps its minutes and its own AM/PM
+on a 12-hour clock: `6:00PM` over `7:30PM`. A point event prints only its start time.
+Missing locations leave the second line free; they do not move the start off the title
+line. Titles and locations truncate independently, and the time column keeps its width.
+An event never gains a third line. Reminders keep their time below the title, and all-day
+items keep their one-line chip with no time or location.
+
+The flow uses the same chronological packing, heading pairs and per-day tail count as
+the default view. Timed rows always cost two budget rows; locations neither consume a
+third row nor pay for a count by being removed. The date line costs 28 design units
+(16px text + 12px gap), and an empty anchor costs another 32 (20px text + 12px gap).
+Section headings cost 24px (16px text + 8px top padding). These still fit the existing
+31px-per-row ceiling with the 6px flow gap, so every mix fits without separate packing
+arithmetic. The border comes off in real pixels before Scale and the 16px insets.
 
 ## 5. The height budget
 
@@ -571,6 +617,14 @@ The sixth is the eighth screenshot, and it is the same trade read the other way:
 all-day entry costs one row instead of two, and that saved row is exactly what pays for
 `Warsawa Główna` underneath the event below it. The same day in **small** comes to
 `1 + 3`: two items _and_ a location inside four rows.
+
+### Single Column examples
+
+At 248px high and Scale 100%, the single-column budget is 6 rows, or 5 when the
+anchor is empty. At the 184px floor and Scale 130%, a non-empty anchor has 2 rows.
+With a budget of 5, three timed events (the first two with locations) draw as
+`2 + 2 + 1`: both locations remain and the last row says `1 more event`.
+These cases are transcribed into `layout.test.ts` alongside the default examples.
 
 ## 9. What a tap opens
 

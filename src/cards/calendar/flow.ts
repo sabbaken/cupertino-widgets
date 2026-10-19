@@ -23,7 +23,7 @@
 
 import { filterBlocked } from '../../core/blocklist'
 import { dayNumber, dayStart } from './datetime'
-import { sectionHeading, type FormatContext } from './format'
+import { dateHeading, sectionHeading, type FormatContext } from './format'
 import { isOver, lastDay, type CalendarItem } from './model'
 
 export type FlowNode =
@@ -91,6 +91,8 @@ export interface FlowOptions {
   now: Date
   ctx: FormatContext
   blocklist?: string | undefined
+  /** Full dates keep every section consistent with the single column's anchor line. */
+  singleColumn?: boolean
   /** Days from today to the anchor day. See `DayWindow`. */
   offsetDays?: number
   /**
@@ -206,7 +208,9 @@ export function buildFlow(items: readonly CalendarItem[], options: FlowOptions):
         nodes.push({
           type: 'header',
           key: `day-${day}`,
-          text: sectionHeading(item.start, now, ctx),
+          text: options.singleColumn
+            ? dateHeading(item.start, ctx)
+            : sectionHeading(item.start, now, ctx),
         })
       }
     }

@@ -1,3 +1,5 @@
+/** Selection is shared by both presentations; only the day heading's wording changes. */
+
 import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_DAY_SPAN, MAX_DAY_OFFSET, MAX_DAY_SPAN, buildFlow, dayWindow } from './flow'
@@ -33,6 +35,22 @@ interface FlowWindow {
 
 /** The window the small size passes: the day it is anchored on and no other. */
 const ONE_DAY = { spanDays: 1 }
+
+describe('single column headings', () => {
+  it('names tomorrow with its date while leaving the anchor to the date line', () => {
+    const items = [
+      event('Today', '2026-07-24T15:00:00+02:00'),
+      event('Tomorrow', '2026-07-25T10:00:00+02:00'),
+    ]
+    const flow = buildFlow(items, { now: NOW, ctx, singleColumn: true })
+    expect(flow.nodes.map(node => (node.type === 'header' ? node.text : node.item.title))).toEqual([
+      'Today',
+      'SATURDAY, 25 JUL',
+      'Tomorrow',
+    ])
+    expect(labels(items)).toEqual(['Today', '# TOMORROW', 'Tomorrow'])
+  })
+})
 
 describe('the block list', () => {
   it('hides events and reminders before creating day headings', () => {

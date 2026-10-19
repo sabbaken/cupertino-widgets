@@ -1,3 +1,9 @@
+/**
+ * The calendar draws one measured flow in two presentations. The default pours it
+ * through columns; Single Column spends the date block's height on later days and
+ * puts both ends of an event beside its title and location rather than below them.
+ */
+
 import { mdiCalendarMonth } from '@mdi/js'
 import {
   css,
@@ -17,9 +23,9 @@ import { CALENDAR_EDITOR_TAG } from './calendar-card-editor'
 import { displayTimeZone, timePreferences, type TimeFormatOption } from './datetime'
 import { demoItems } from './demo-data'
 import { buildFlow, dayWindow } from './flow'
-import { TIME_DASH, emptyLabel, itemTime, moreLabel, widgetDate } from './format'
+import { TIME_DASH, dateHeading, emptyLabel, itemTime, moreLabel, widgetDate } from './format'
 import type { FormatContext, ItemTime, TimeToken } from './format'
-import { geometryFor, packFlow, type LayoutColumn, type LayoutRow } from './layout'
+import { geometryFor, modeFor, packFlow, type LayoutColumn, type LayoutRow } from './layout'
 import { itemTarget, type CalendarItem } from './model'
 import { CalendarFeed, calendarsFor, subscriptionWindow } from './source'
 import { TodoFeed, remindersEnabled, todoListsFor } from './todo-source'
@@ -27,6 +33,8 @@ import { TodoFeed, remindersEnabled, todoListsFor } from './todo-source'
 export const CALENDAR_CARD_TAG = 'cupertino-widgets-calendar'
 
 export interface CalendarCardConfig extends CupertinoCardConfig {
+  /** Auto follows the measured box; booleans explicitly keep or disable one column. */
+  single_column?: boolean | 'auto'
   /** Calendar entities to show. Empty/absent means "every calendar", decided at render. */
   entities?: string[]
   /**
@@ -149,8 +157,53 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
       }
 
       /* Medium is one flow of content poured through two columns, not two lists. */
-      :host([cw-layout='medium']) .widget {
+      :host([cw-layout='medium']) .widget:not(.single) {
         grid-template-columns: 1fr 1fr;
+      }
+
+      /* A presentation, not a footprint: the one flow uses the full width even when
+         Home Assistant hands the card a box wide enough for the default two columns. */
+      .single .date {
+        margin-bottom: calc(12px * var(--cw-scale));
+      }
+
+      .single .empty {
+        flex: none;
+        line-height: calc(20px * var(--cw-scale));
+        margin-bottom: calc(12px * var(--cw-scale));
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .single .heading {
+        padding-top: calc(8px * var(--cw-scale));
+      }
+
+      .single .row:not(.allday) {
+        /* Two lines plus the existing 14px padding still cost COMPACT_PX = 56.
+           Keeping that height without a location leaves both times on their own line. */
+        min-height: calc(42px * var(--cw-scale));
+      }
+
+      .single .body {
+        flex: 1;
+      }
+
+      .single .event .body {
+        justify-content: flex-start;
+      }
+
+      .single .event-times {
+        flex: none;
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .single .row.event .event-times .start {
+        line-height: calc(22px * var(--cw-scale));
+        color: var(--item-title);
       }
 
       .column {
@@ -633,7 +686,12 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
    * a widget-sized card holds several rows, and one press effect over all of them said the
    * card was one thing to press when it is a list of them.
    */
-  private _renderItem(item: CalendarItem, expanded: boolean, ctx: FormatContext): TemplateResult {
+  private _renderItem(
+    item: CalendarItem,
+    expanded: boolean,
+    ctx: FormatContext,
+    singleColumn: boolean,
+  ): TemplateResult {
     const mark =
       item.kind === 'reminder'
         ? html`<div class="bullet"></div>`
@@ -641,7 +699,8 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
           ? ALL_DAY_BADGE
           : html`<div class="rail"></div>`
 
-    const time = itemTime(item, ctx)
+    const time = itemTime(item, ctx, singleColumn ? 'stacked' : 'inline')
+    const sideTime = singleColumn && item.kind === 'event'
 
     // Built rather than interpolated: `allday` is conditional, and a ternary inside the
     // attribute has to carry the separating space with it, which is a space nothing in the
@@ -671,25 +730,41 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
                 <div class="body">
                   <div class="title cw-truncate">${item.title}</div>
                   ${
-                    expanded && item.location
+                    (expanded || singleColumn) && item.location && item.kind === 'event'
                       ? html`<div class="location cw-truncate">${item.location}</div>`
                       : nothing
                   }
                   ${
                     // Not an empty div when there is no time: the row is priced in pixels,
                     // and a line box with nothing in it still costs one.
-                    time.kind === 'none'
+                    time.kind === 'none' || sideTime
                       ? nothing
                       : html`<div class="time cw-truncate">${this._renderTime(time)}</div>`
                   }
                 </div>
               `
         }
+        ${
+          sideTime && time.kind !== 'none'
+            ? html`
+                <div class="event-times">
+                  <div class="time start">
+                    ${this._renderToken(time.kind === 'range' ? time.from : time.at)}
+                  </div>
+                  ${
+                    time.kind === 'range'
+                      ? html`<div class="time end">${this._renderToken(time.to)}</div>`
+                      : nothing
+                  }
+                </div>
+              `
+            : nothing
+        }
       </div>
     `
   }
 
-  private _renderRow(row: LayoutRow, ctx: FormatContext): TemplateResult {
+  private _renderRow(row: LayoutRow, ctx: FormatContext, singleColumn: boolean): TemplateResult {
     if (row.node.type === 'header') {
       return html`<div class="heading cw-truncate">${row.node.text}</div>`
     }
@@ -706,15 +781,18 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
       `
     }
 
-    return this._renderItem(row.node.item, row.expanded, ctx)
+    return this._renderItem(row.node.item, row.expanded, ctx, singleColumn)
   }
 
   private _renderColumn(
     column: LayoutColumn | undefined,
     ctx: FormatContext,
+    singleColumn = false,
   ): TemplateResult | typeof nothing {
     if (!column?.rows.length) return nothing
-    return html` <div class="flow">${column.rows.map(row => this._renderRow(row, ctx))}</div> `
+    return html`
+      <div class="flow">${column.rows.map(row => this._renderRow(row, ctx, singleColumn))}</div>
+    `
   }
 
   protected override render(): TemplateResult | typeof nothing {
@@ -724,7 +802,12 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
     const { locale, hour12 } = timePreferences(this.hass?.locale, this._config.time_format)
     const ctx: FormatContext = { locale, timeZone: this._timeZone, hour12 }
 
-    const mode = this.cwLayout
+    const mode = modeFor(
+      { width: this.boxWidth, height: this.boxHeight },
+      this.scaleFactor,
+      this._config.single_column,
+    )
+    const singleColumn = mode === 'single'
     const fixtures = this._fixtures
     // One pile, and `buildFlow` sorts it: events and reminders share a stream rather than
     // being drawn in sections of their own (§2). The fixtures already hold both.
@@ -741,6 +824,7 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
       offsetDays: window.offsetDays,
       spanDays: mode === 'small' ? 1 : window.spanDays,
       blocklist: this._config.blocklist,
+      singleColumn,
     })
     // The scale goes in as a factor, not as scaled constants: `layout.ts` prices rows in
     // design units and divides the box it was handed, so the budget shrinks as the type
@@ -757,16 +841,23 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
     // under a finger aimed at one row was the card claiming otherwise.
     return html`
       <ha-card>
-        <div class="widget">
+        <div class=${singleColumn ? 'widget single' : 'widget'}>
           <div class="column">
             <div class="date">
-              <div class="weekday">${date.weekday}</div>
-              <div class="day">${date.day}</div>
+              ${
+                singleColumn
+                  ? html`<div class="weekday cw-truncate">${dateHeading(flow.anchor, ctx)}</div>`
+                  : html`
+                      <div class="weekday">${date.weekday}</div>
+                      <div class="day">${date.day}</div>
+                    `
+              }
             </div>
+            ${flow.anchorEmpty ? html`<div class="empty">${empty}</div>` : nothing}
             ${
-              flow.anchorEmpty
-                ? html`<div class="empty">${empty}</div>`
-                : this._renderColumn(columns[0], ctx)
+              singleColumn || !flow.anchorEmpty
+                ? this._renderColumn(columns[0], ctx, singleColumn)
+                : nothing
             }
           </div>
           ${

@@ -64,7 +64,7 @@ const relativeDay = (locale: string | undefined): Intl.RelativeTimeFormat => {
   return cached
 }
 
-const timeToken = (date: Date, ctx: FormatContext): TimeToken => {
+const timeToken = (date: Date, ctx: FormatContext, keepMinutes = false): TimeToken => {
   const { locale, timeZone, hour12 } = ctx
   const parts = formatter(
     `time|${locale}|${timeZone}|${hour12}`,
@@ -91,7 +91,7 @@ const timeToken = (date: Date, ctx: FormatContext): TimeToken => {
 
   // Dropping ":00" is a 12-hour-clock idiom; "17 – 18" would read as a range of
   // numbers, not of times, so a 24-hour clock keeps its minutes.
-  const text = hour12 && minute === '00' ? hour : `${hour}${separator}${minute}`
+  const text = hour12 && minute === '00' && !keepMinutes ? hour : `${hour}${separator}${minute}`
 
   return {
     text,
@@ -104,19 +104,25 @@ const timeToken = (date: Date, ctx: FormatContext): TimeToken => {
  * How an item's time reads on the card.
  *
  * All-day items print no time at all, and anything without a real duration (a
- * reminder, a zero-length event) prints a single time.
+ * reminder, a zero-length event) prints a single time. Stacked endpoints each keep
+ * their minutes and period, since sharing either across lines makes them ambiguous.
  */
 export const itemTime = (
   item: { start: Date; end?: Date; allDay?: boolean },
   ctx: FormatContext,
+  presentation: 'inline' | 'stacked' = 'inline',
 ): ItemTime => {
+  // Separate lines must each name their half of the day; sharing PM only reads as a
+  // range while both times sit together. The reference also keeps whole-hour minutes.
+  const stacked = presentation === 'stacked'
   if (item.allDay) return { kind: 'none' }
   if (!item.end || item.end.getTime() <= item.start.getTime()) {
-    return { kind: 'point', at: timeToken(item.start, ctx) }
+    return { kind: 'point', at: timeToken(item.start, ctx, stacked) }
   }
 
-  const from = timeToken(item.start, ctx)
-  const to = timeToken(item.end, ctx)
+  const from = timeToken(item.start, ctx, stacked)
+  const to = timeToken(item.end, ctx, stacked)
+  if (stacked) return { kind: 'range', from, to }
 
   // `12 – 1PM`: one meridiem is enough while both ends share a half of the same day.
   // Across days it is not: `5 – 6PM` for a five-day trip would read as one hour.
@@ -152,6 +158,12 @@ export const sectionHeading = (date: Date, today: Date, ctx: FormatContext): str
   const away = dayNumber(date, timeZone) - dayNumber(today, timeZone)
   if (Math.abs(away) <= 1) return upper(relativeDay(locale).format(away, 'day'))
 
+  return dateHeading(date, ctx)
+}
+
+/** A full date on one line, so a single column needs no separate day numeral. */
+export const dateHeading = (date: Date, ctx: FormatContext): string => {
+  const { locale, timeZone } = ctx
   const weekday = formatter(
     `weekday|${locale}|${timeZone}`,
     () => new Intl.DateTimeFormat(locale, { weekday: 'long', ...zone(timeZone) }),
@@ -163,7 +175,7 @@ export const sectionHeading = (date: Date, today: Date, ctx: FormatContext): str
     () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', ...zone(timeZone) }),
   ).format(date)
 
-  return upper(`${weekday}, ${dayMonth}`)
+  return `${weekday}, ${dayMonth}`.toLocaleUpperCase(locale)
 }
 
 /**

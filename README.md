@@ -223,10 +223,17 @@ write unless you want to.
 
 ### The calendar
 
-Five fields: **Calendars**, which calendars feed it; **Reminders**, whether your to-do items
+Six fields: **Calendars**, which calendars feed it; **Reminders**, whether your to-do items
 are drawn beside the events; **To-do lists**, which lists those come from; **Clock**, which
-format it prints times in; and **Scale**, how large to draw it. Leave all of them alone and
-you get every calendar, every to-do list, your Home Assistant time format, and 100%.
+format it prints times in; **Single Column**, which puts dates and events in one column;
+and **Scale**, how large to draw it. Leave all of them alone and you get every calendar,
+every to-do list, your Home Assistant time format, the automatic layout, and 100%.
+
+**Single Column** defaults to **Automatic**: a large, near-square card uses full date
+headings and start/end times stacked on the right. Locations use the second line, so an
+event never grows beyond two lines. **Always on** keeps this view at any size; **Off**
+keeps the usual layout even on a large card. The single-column view follows **Days shown**
+even in a narrow card; drag it taller to see more days.
 
 Three more are folded into **Advanced**, and you can leave those alone too: **First day**,
 **Days shown** and **Block list**. In **Block list**, enter words or phrases separated by
@@ -244,22 +251,24 @@ show_reminders: true # optional; false leaves your to-do lists out entirely
 todo_entities: # optional; leave it out for every to-do list
   - todo.chores
 time_format: system # optional; system | 12 | 24
+single_column: auto # optional; auto | true (always on) | false (off)
 day_offset: 0 # optional; 1 is tomorrow, -1 is yesterday
 days_to_show: 14 # optional; 1 pins the card to that one day
 blocklist: 'lunch, school run' # optional; hide matching titles in this card only
 scale: 100 # optional; 80–130, percent
 ```
 
-| Option           | Default          | Meaning                                                          |
-| ---------------- | ---------------- | ---------------------------------------------------------------- |
-| `entities`       | every calendar   | Which `calendar.*` entities to draw. Omit it rather than empty.  |
-| `show_reminders` | `true`           | Whether reminders are drawn. `false` reads no to-do list at all. |
-| `todo_entities`  | every to-do list | Which `todo.*` entities to read. Omit it rather than empty.      |
-| `time_format`    | `system`         | `system` follows your profile; `12` or `24` overrides it.        |
-| `day_offset`     | `0`              | Which day the card starts on, counted from today. −31 to 31.     |
-| `days_to_show`   | `14`             | How many days it covers, counting the first. 1 to 31.            |
-| `blocklist`      | empty            | Comma-separated title fragments to hide, ignoring case.          |
-| `scale`          | `100`            | Percent. Draws the whole widget larger or smaller. 80–130.       |
+| Option           | Default          | Meaning                                                              |
+| ---------------- | ---------------- | -------------------------------------------------------------------- |
+| `entities`       | every calendar   | Which `calendar.*` entities to draw. Omit it rather than empty.      |
+| `show_reminders` | `true`           | Whether reminders are drawn. `false` reads no to-do list at all.     |
+| `todo_entities`  | every to-do list | Which `todo.*` entities to read. Omit it rather than empty.          |
+| `time_format`    | `system`         | `system` follows your profile; `12` or `24` overrides it.            |
+| `single_column`  | `auto`           | Automatic for a large square; `true` forces it, `false` disables it. |
+| `day_offset`     | `0`              | Which day the card starts on, counted from today. −31 to 31.         |
+| `days_to_show`   | `14`             | How many days it covers, counting the first. 1 to 31.                |
+| `blocklist`      | empty            | Comma-separated title fragments to hide, ignoring case.              |
+| `scale`          | `100`            | Percent. Draws the whole widget larger or smaller. 80–130.           |
 
 `12`, `24`, `scale`, `day_offset` and `days_to_show` are read whether or not you quote them.
 

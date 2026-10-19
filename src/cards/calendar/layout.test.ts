@@ -1,7 +1,9 @@
+/** Packing invariants apply to both column counts, including the two-line single view. */
+
 import { describe, expect, it } from 'vitest'
 
 import type { FlowNode } from './flow'
-import { COST, geometryFor, packFlow, type LayoutColumn, type MoreNode } from './layout'
+import { COST, geometryFor, modeFor, packFlow, type LayoutColumn, type MoreNode } from './layout'
 import type { CalendarItem } from './model'
 
 const item = (title: string, location?: string): CalendarItem => ({
@@ -576,7 +578,7 @@ describe('invariants, over twenty thousand random flows', () => {
 
     for (let trial = 0; trial < 20_000 && broken.length === 0; trial += 1) {
       const flow = randomFlow()
-      const mode = random(2) ? 'medium' : 'small'
+      const mode = (['small', 'medium', 'single'] as const)[random(3)]!
       const budgets = mode === 'medium' ? [random(9), random(11)] : [random(9)]
       const columns = packFlow(flow, budgets, mode)
       const where = JSON.stringify({ mode, budgets, flow: flow.map(n => n.key) })
@@ -759,5 +761,75 @@ describe('geometry', () => {
         expect(geometryFor('small', height, false, scale).budgets[0]).toBe(left)
       }
     }
+  })
+})
+
+describe('automatic single column', () => {
+  it('uses one column for a large square and keeps small squares and wide bands unchanged', () => {
+    expect(modeFor({ width: 500, height: 504 })).toBe('single')
+    expect(modeFor({ width: 500, height: 440 }, 1, 'auto')).toBe('single')
+    expect(modeFor({ width: 246, height: 248 })).toBe('small')
+    expect(modeFor({ width: 246, height: 504 })).toBe('small')
+    expect(modeFor({ width: 500, height: 248 })).toBe('medium')
+    expect(modeFor({ width: 500, height: 376 })).toBe('medium')
+    expect(modeFor({ width: 800, height: 400 })).toBe('medium')
+  })
+
+  it('changes at the size and proportion boundaries with both dimensions scaled', () => {
+    for (const scale of [0.8, 1, 1.3]) {
+      const box = (width: number, height: number) => ({
+        width: width * scale,
+        height: height * scale,
+      })
+      expect(modeFor(box(340, 340), scale)).toBe('single')
+      expect(modeFor(box(340, 339), scale)).toBe('medium')
+      expect(modeFor(box(339, 500), scale)).toBe('small')
+      expect(modeFor(box(500, 400), scale)).toBe('single')
+      expect(modeFor(box(500, 399), scale)).toBe('medium')
+    }
+  })
+
+  it('honours an explicit choice in either direction at every footprint', () => {
+    expect(modeFor({ width: 246, height: 184 }, 1, true)).toBe('single')
+    expect(modeFor({ width: 500, height: 504 }, 1, false)).toBe('medium')
+    expect(modeFor({ width: 246, height: 504 }, 1, false)).toBe('small')
+  })
+})
+
+describe('single column geometry', () => {
+  it('spends the date block on rows and reserves one line for an empty anchor', () => {
+    expect(geometryFor('single', 248, false).budgets).toEqual([6])
+    expect(geometryFor('single', 248, true).budgets).toEqual([5])
+    expect(geometryFor('single', 184, false, 1.3).budgets).toEqual([2])
+  })
+
+  it('keeps locations inside two-line items without trading them for the count', () => {
+    const columns = packFlow([row('A', 'here'), row('B', 'there'), row('C')], [5], 'single')
+    expect(columns[0]!.rows.map(r => r.cost)).toEqual([2, 2, 1])
+    expect(columns[0]!.rows.every(r => !r.expanded)).toBe(true)
+    expect(more(columns)?.count).toBe(1)
+  })
+
+  it('fits the measured two-line rows and full headings at every supported scale', () => {
+    const broken: string[] = []
+    let samples = 0
+    for (const scale of [0.8, 0.9, 1, 1.1, 1.3]) {
+      for (let height = 100; height <= 800; height += 1) {
+        for (const anchorEmpty of [false, true]) {
+          const [budget] = geometryFor('single', height, anchorEmpty, scale).budgets
+          const content = Math.max(0, (height - 2) / scale - 32 - 28 - (anchorEmpty ? 32 : 0))
+          // Compact rows cost 56px; every one-row node is at most 24px, including
+          // the single view's taller heading. A gap is paid only between nodes.
+          const compacts = Math.floor(budget! / 2)
+          const single = budget! % 2
+          const nodes = compacts + single
+          const drawn = compacts * 56 + single * 24 + Math.max(0, nodes - 1) * 6
+          if (drawn > content) broken.push(`${height}px at ${scale}, empty ${anchorEmpty}`)
+          samples += 1
+        }
+      }
+    }
+    expect(broken).toEqual([])
+    expect(samples).toBeGreaterThan(7_000)
   })
 })
