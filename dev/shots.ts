@@ -87,13 +87,16 @@ interface Shot {
    * rather than the design: shipping one in the README would present a shape nobody was
    * aiming for as the shape to aim for.
    *
-   * 12×6 is the third, and it belongs to the reminders card alone: it is where that card
+   * 12×6 is the reminders card's tall panel: it is where that card
    * puts its heading over the rows instead of beside them, which is a drawing nobody sees
    * at either of the other two and is not a variation on them.
    * `docs/reminders-widget-rules.md` §7 has why the line falls there.
+   *
+   * 12×8 is the calendar's large square. Its single column puts the dates above a
+   * full-width list and the event times on the right; 12×6 retains the two-column view.
    */
   columns: 6 | 12
-  rows: 4 | 6
+  rows: 4 | 6 | 8
   theme: 'light' | 'dark'
 }
 
@@ -145,6 +148,15 @@ const SHOTS: readonly Shot[] = [
     columns: 12,
     rows: 4,
     theme: 'dark',
+  },
+  {
+    name: 'calendar-single-column',
+    caption: 'large: one column, full dates and event times on the right',
+    tag: CALENDAR_CARD_TAG,
+    config: { ...calendarShot('default'), single_column: true },
+    columns: 12,
+    rows: 8,
+    theme: 'light',
   },
   {
     name: 'battery-medium',

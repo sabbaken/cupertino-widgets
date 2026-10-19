@@ -93,6 +93,15 @@ top, the day that goes without a heading, and the line a quiet day shows.
       <code>TOMORROW</code> has to mean literally tomorrow.</sub>
     </td>
   </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-single-column.png" width="420"
+           alt="A large calendar card in a light theme and Single Column Mode: Friday, Jul 24 above Design review, Lunch with Anna and Dentist, then Saturday, Jul 25 above Market run, Coffee with Marta and Training, with event times on the right">
+      <br />
+      <sub><b>Large, Single Column Mode.</b> Dates head a full-width list, with each event's
+      start and end times stacked on the right.</sub>
+    </td>
+  </tr>
 </table>
 
 Those are fixtures rather than anybody's real week. What the card decides to show, and in
