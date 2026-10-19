@@ -262,12 +262,33 @@ describe('a today that is over', () => {
     expect(flow).toMatchObject({ anchorEmpty: true, anchorDone: true })
   })
 
-  it('is claimed by a last meeting that is only half over', () => {
-    // Nothing follows the 11:00, and from 11:45 the widget has nothing left to offer: the
-    // line says as much while that meeting still has half an hour in it, which is the
-    // selection rule read out loud rather than a second rule about the line.
+  it('keeps the last running meeting until its real end', () => {
     const halfOver = event('Standup', '2026-07-24T11:00:00+02:00', '2026-07-24T12:30:00+02:00')
-    expect(buildFlow([halfOver], { now: NOW, ctx })).toMatchObject({
+    for (const spanDays of [1, DEFAULT_DAY_SPAN]) {
+      const items = [over, halfOver, tomorrow]
+      const beforeEnd = buildFlow(items, {
+        now: new Date('2026-07-24T12:29:59+02:00'),
+        ctx,
+        spanDays,
+      })
+      expect(beforeEnd).toMatchObject({ anchorEmpty: false, anchorDone: false })
+      expect(beforeEnd.nodes[0]).toMatchObject({ type: 'item', item: halfOver })
+      expect(
+        buildFlow(items, { now: new Date('2026-07-24T12:30:00+02:00'), ctx, spanDays }),
+      ).toMatchObject({ anchorEmpty: true, anchorDone: true })
+    }
+  })
+
+  it('waits for every overlapping meeting to end', () => {
+    const first = event('Standup', '2026-07-24T11:00:00+02:00', '2026-07-24T12:30:00+02:00')
+    const second = event('Workshop', '2026-07-24T10:00:00+02:00', '2026-07-24T13:00:00+02:00')
+    expect(labels([over, first, second])).toEqual(['Workshop', 'Standup'])
+    expect(
+      buildFlow([first, second], { now: new Date('2026-07-24T12:30:00+02:00'), ctx }),
+    ).toMatchObject({ anchorEmpty: false, anchorDone: false })
+    expect(
+      buildFlow([first, second], { now: new Date('2026-07-24T13:00:00+02:00'), ctx }),
+    ).toMatchObject({
       anchorEmpty: true,
       anchorDone: true,
     })

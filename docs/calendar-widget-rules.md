@@ -277,7 +277,10 @@ those days wants.
    than a moment in it, and a **span across midnight** (an overnight shift, a multi-day trip
    with times on it), which the flow is still filing under today for being under way, and
    which the reader is on rather than done with. Only a real end time retires a row at all,
-   so an overdue reminder stays up for the rest of its day.
+   so an overdue reminder stays up for the rest of its day. If halfway retirement would
+   leave the anchor day empty, its running meetings stay until their real end: there is
+   no later appointment on that day to make room for, and an empty line would claim the
+   day is finished while something is still happening.
 3. Inside a day: all-day first, then by start time. Reminders and events share one
    stream: `Pick up dry cleaning 10:30` comes before `Language class 12:00`, and it is
    not shunted into a section of its own. A reminder due on a date with no time is one of
@@ -347,13 +350,12 @@ is finished by definition, so `No More Events Yesterday` would be saying nothing
 tomorrow cannot be. Past the day either side, the date block above the line has already
 named the day better than a relative word could, so the line stops trying.
 
-"Already over" is §2's own rule read backwards: the same events that drop out of the flow
-during the day are what turn the line into `No More Events Today`, so it arrives when the
-last of them is half over rather than when it ends. `No More Events Today` while that
-meeting still has twenty minutes to run is the rule saying what it means: there is nothing
-after this one. An entry with no end time never retires and so never produces the line, and
-the end that dates a retired row is the exclusive one: an all-day entry for yesterday ends at
-today's midnight and is still yesterday's.
+"Already over" means the real end time. Halfway retirement still makes room for later
+appointments, but the anchor's last running meetings stay until all of them have ended.
+Only then does the line become `No More Events Today`; using `No Events Today` instead
+would say there had been nothing on the day at all. An entry with no end time never retires
+and so never produces the line, and the end that dates a retired row is the exclusive one:
+an all-day entry for yesterday ends at today's midnight and is still yesterday's.
 
 ## 5. The height budget
 

@@ -10,8 +10,9 @@
  *     today unless `day_offset` moves it, and the `days_to_show` days from there;
  *  2. anything the clock has overtaken is dropped, which is halfway through a meeting
  *     rather than at the end of it (`retiresAt` in `model.ts` has the argument), though a
- *     dropped item is still counted, so a day that is over can say so. **Only on today**:
- *     see the comment at the test itself;
+ *     dropped item is still counted, so a day that is over can say so. An otherwise empty
+ *     anchor keeps its running meetings until their real end rather than claiming the day
+ *     is done early. **Only on today**: see the comment at the test itself;
  *  3. inside a day: all-day first, then by start time, reminders and events share
  *     one stream rather than being separated;
  *  4. days with nothing in them vanish completely, headings and all, so an empty
@@ -120,9 +121,9 @@ export interface Flow {
    * read at six in the evening of a day with three meetings behind it, says the card
    * lost them rather than that the day is done.
    *
-   * "Finished" is `isOver`'s reading of it, so the last meeting of a day turns this on
-   * halfway through itself. `No More Events Today` while that meeting still has twenty
-   * minutes in it is the rule doing what it says: there is nothing after this one.
+   * "Finished" means the real end, rather than `isOver`'s halfway point. An otherwise
+   * empty anchor keeps its running meetings until then, so neither empty line describes
+   * a day that still has something happening on it.
    */
   anchorDone: boolean
 }
@@ -139,6 +140,7 @@ export function buildFlow(items: readonly CalendarItem[], options: FlowOptions):
   const last = first + Math.max(1, spanDays) - 1
 
   const placed: Placed[] = []
+  const runningOnAnchor: Placed[] = []
   // Only interesting when nothing is left: it is what tells an empty anchor day from a
   // finished one.
   let anyFinishedOnAnchor = false
@@ -165,12 +167,22 @@ export function buildFlow(items: readonly CalendarItem[], options: FlowOptions):
       // `endDay`, not the item's own last day: they are the same thing here (only an item
       // with an end can be retired at all), and this asks whether the day that finished is
       // the one the card is anchored on. It can only be true when the anchor IS today.
-      anyFinishedOnAnchor ||= endDay === first
+      if (endDay === first) {
+        if (item.end && item.end.getTime() > now.getTime()) {
+          runningOnAnchor.push({ item, day })
+        } else {
+          anyFinishedOnAnchor = true
+        }
+      }
       continue
     }
 
     placed.push({ item, day })
   }
+
+  // Halfway retirement makes room for what follows. When nothing follows on the anchor
+  // day, keeping the running rows costs no next appointment and avoids an early empty line.
+  if (!placed.some(({ day }) => day === first)) placed.push(...runningOnAnchor)
 
   placed.sort((a, b) => {
     if (a.day !== b.day) return a.day - b.day
