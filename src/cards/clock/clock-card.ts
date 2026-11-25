@@ -3,6 +3,7 @@ import * as mdi from '@mdi/js'
 import { css, html, nothing, type TemplateResult } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
 import { registerCard } from '../../core/register'
+import { MAX_SCALE, scaleFactor } from '../../core/scale'
 import type { LovelaceCardEditor } from '../../core/types/ha'
 import { displayTimeZone, timePreferences } from '../calendar/datetime'
 import { CupertinoComplicationCardBase } from '../complications/complication-card-base'
@@ -11,6 +12,8 @@ import { CLOCK_EDITOR_TAG } from './clock-editor'
 import {
   CLOCK_COMPLICATION_APPEARANCE,
   CLOCK_COMPLICATION_LIMIT,
+  clockFontFamily,
+  clockTypography,
   type ClockCardConfig,
 } from './config'
 
@@ -18,6 +21,7 @@ export const CLOCK_CARD_TAG = 'cupertino-clock-card'
 
 const COMPLICATION_GAP = 12
 const MAX_COMPLICATION_DIAMETER = 56
+const MAX_CLOCK_SCALE = scaleFactor(MAX_SCALE)
 
 const weatherIcons: Record<string, string> = {
   'clear-night': mdi.mdiWeatherNight,
@@ -85,11 +89,11 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
         fill: currentColor;
       }
       .time {
-        font-family: var(--cw-font);
+        font-family: var(--cw-clock-font);
         font-size: var(--cw-clock-size);
-        font-weight: 650;
+        font-weight: var(--cw-clock-weight);
         line-height: 1;
-        letter-spacing: -0.055em;
+        letter-spacing: var(--cw-clock-tracking);
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
@@ -186,26 +190,40 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
     const showContext = date !== nothing || weather !== nothing
     const showBackground = this._config?.show_background === true
     const border = showBackground ? 2 : 0
-    const width = Math.max(0, (this.boxWidth - border) / this.scaleFactor - 32)
-    const height = Math.max(0, (this.boxHeight - border) / this.scaleFactor - 32)
-    // Budget for the header even when hidden so the time keeps its size.
-    const timeAndReadings = height - 31 - (rows.length ? 12 : 0)
-    const diameter = rows.length
-      ? Math.max(
-          0,
-          Math.min(
-            MAX_COMPLICATION_DIAMETER,
-            (width - (rows.length - 1) * COMPLICATION_GAP) / rows.length,
-            timeAndReadings * 0.36,
-          ),
-        )
-      : 0
-    const clockSize = Math.max(0, Math.min(128, width / 2.95, timeAndReadings - diameter))
+    const budgetAt = (scale: number) => {
+      const width = Math.max(0, (this.boxWidth - border) / scale - 32)
+      // Budget for the header even when hidden so the time keeps its size.
+      const timeAndReadings = (this.boxHeight - border) / scale - 32 - 31 - (rows.length ? 12 : 0)
+      const diameter = rows.length
+        ? Math.max(
+            0,
+            Math.min(
+              MAX_COMPLICATION_DIAMETER,
+              (width - (rows.length - 1) * COMPLICATION_GAP) / rows.length,
+              timeAndReadings * 0.36,
+            ),
+          )
+        : 0
+      return { width, timeAndReadings, diameter }
+    }
+    const { diameter } = budgetAt(this.scaleFactor)
+    // Fit at the top of the slider so a tight box still leaves room for the time to grow.
+    const largest = budgetAt(MAX_CLOCK_SCALE)
+    const { tracking, weight } = clockTypography(this._config)
+    // Extra positive tracking takes up space on each character, including the separator.
+    const widthPerEm = 3.25 + [...time].length * Math.max(0, tracking)
+    const clockSize = Math.max(
+      0,
+      Math.min(128, largest.width / widthPerEm, largest.timeAndReadings - largest.diameter),
+    )
 
     return html`<ha-card ?data-transparent=${!showBackground}>
       <div
         class="clock"
         style=${styleMap({
+          '--cw-clock-font': clockFontFamily(this._config?.font),
+          '--cw-clock-tracking': `${tracking}em`,
+          '--cw-clock-weight': weight,
           '--cw-clock-size': `calc(${clockSize}px * var(--cw-scale))`,
           '--cw-gauge-size': `calc(${diameter}px * var(--cw-scale))`,
         })}

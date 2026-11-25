@@ -336,6 +336,11 @@ time format and time zone and has a transparent background by default. Set
 Choose a weather entity to display the current condition as an icon, with the temperature
 when available. Add up to four complications below the time using the same settings as
 **Cupertino Complications**. On the clock, their default appearance is monochrome.
+Under **Advanced**, use **Time font** to choose System default, Rounded, Avenir Next, DIN Alternate, Futura
+or Monospace. You can also set a local family name in YAML. If that font is missing on a
+device, the clock uses its system font. **Tracking** sets the spacing in thousandths of an
+em and defaults to `-55`. **Font weight** defaults to `650`. In YAML these are `tracking`
+and `font_weight`. Use **Scale** to resize the card contents.
 
 ```yaml
 type: custom:cupertino-clock-card
