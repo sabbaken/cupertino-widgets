@@ -192,6 +192,7 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
    * card that opens the wrong thing five times out of six.
    */
   private _openMoreInfo(entityId: string): void {
+    if (this.inCardPicker) return
     this.dispatchEvent(
       new CustomEvent('hass-more-info', {
         detail: { entityId },
@@ -256,7 +257,13 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
   protected override render(): TemplateResult | typeof nothing {
     if (!this._config) return nothing
 
-    const devices = readDevices(this.hass, this._config.entities)
+    const devices = this.inCardPicker
+      ? [
+          { id: 'phone', name: 'Phone', icon: 'mdi:cellphone', level: 82, charging: true },
+          { id: 'watch', name: 'Watch', icon: 'mdi:watch', level: 64, charging: false },
+          { id: 'earbuds', name: 'Earbuds', icon: 'mdi:earbuds', level: 43, charging: false },
+        ]
+      : readDevices(this.hass, this._config.entities)
 
     if (devices.length === 0) {
       return html`

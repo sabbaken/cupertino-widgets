@@ -1,6 +1,5 @@
 /**
- * The showcase feeds ordinary states into Controls. Its long labels exercise the
- * same overflow behaviour as names from the entity registry.
+ * The showcase feeds ordinary states into Controls, with devices across two rooms.
  */
 import type { HassEntity } from '../src/core/types/ha'
 
@@ -19,7 +18,7 @@ const tile = (
 })
 
 export const CONTROL_STATES = [
-  tile('light.reading', 'on', 'Лампа над креслом у окна', 'mdi:lightbulb', { brightness: 151 }),
+  tile('light.reading', 'on', 'Reading lamp', 'mdi:lightbulb', { brightness: 151 }),
   tile('fan.ceiling', 'on', 'Ceiling fan', 'mdi:fan', { percentage: 50 }),
   tile('switch.desk', 'off', 'Desk power strip', 'mdi:power-plug'),
   tile('light.hallway', 'unavailable', 'Hallway lamp', 'mdi:lightbulb'),
@@ -28,3 +27,5 @@ export const CONTROL_STATES = [
   tile('fan.window', 'off', 'Window fan', 'mdi:fan'),
   tile('light.shelf', 'on', 'Shelf lighting', 'mdi:lightbulb', { brightness: 102 }),
 ]
+
+export const BEDROOM_CONTROL_IDS = new Set(['switch.desk', 'fan.window'])

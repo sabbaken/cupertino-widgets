@@ -140,6 +140,14 @@ Not to be confused with `window.customCards[].preview`, which is a different fla
 similar name: that one really is picker-only, and asks the picker to render a live card
 instead of a grey tile.
 
+The card-type picker has no preview property of its own on the card. In the shipped
+frontend, `hui-card-picker` inserts the custom element directly under its `.preview` div
+and forwards the same stub config when the tile is selected. The cards check this shadow
+root and parent to draw sample data without putting sample entities in the stub. The
+chosen card is rendered in a different root by the editor. This depends on the picker's
+markup, so check the bundle for `_cardPicked` and `class="preview` if a frontend update
+brings the empty states back.
+
 ## Calendar data (VERIFIED: contradicts most tutorials)
 
 HA's own frontend does **not** use the REST endpoint `/api/calendars/<entity>?start=&end=`

@@ -26,7 +26,7 @@
  */
 
 import type { FrontendLocaleData, HassEntity, HomeAssistant } from '../src/core/types/ha'
-import { CONTROL_STATES } from './control-entities'
+import { BEDROOM_CONTROL_IDS, CONTROL_STATES } from './control-entities'
 import {
   COMPLICATION_STATES,
   COMPLICATION_WEATHER,
@@ -432,17 +432,27 @@ export interface MockHassOptions {
   timeFormat: FrontendLocaleData['time_format']
 }
 
+const controlAreas = new Map(
+  CONTROL_STATES.map(({ entity_id }) => [
+    entity_id,
+    BEDROOM_CONTROL_IDS.has(entity_id) ? 'bedroom' : 'living_room',
+  ]),
+)
+
 export function createMockHass({ dark, timeFormat }: MockHassOptions): HomeAssistant {
   return {
     states: { ...STATES },
-    areas: { living_room: { name: 'Гостиная и обеденная зона' } },
+    areas: {
+      living_room: { name: 'Living room' },
+      bedroom: { name: 'Bedroom' },
+    },
     entities: Object.fromEntries(
       Object.keys(STATES).map(id => [
         id,
         {
           entity_id: id,
           hidden: false,
-          area_id: CONTROL_STATES.some(entity => entity.entity_id === id) ? 'living_room' : null,
+          area_id: controlAreas.get(id) ?? null,
         },
       ]),
     ),

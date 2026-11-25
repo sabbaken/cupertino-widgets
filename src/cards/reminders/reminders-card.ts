@@ -30,6 +30,7 @@ import {
   COMPLETED,
   NEEDS_ACTION,
   listCanComplete,
+  readItems,
   listExists,
   listIcon,
   listName,
@@ -465,6 +466,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
    * at all, and that check is ours to make rather than the panel's.
    */
   private readonly _openList = (): void => {
+    if (this.inCardPicker) return
     const entityId = this._config?.entity
     if (!entityId || !this.hass?.states[entityId]) return
 
@@ -653,22 +655,27 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
   protected override render(): TemplateResult | typeof nothing {
     if (!this._config) return nothing
 
+    const sample = this.inCardPicker
     const entityId = this._config.entity
     // A config with no list, and a config pointing at one that is no longer there, are the
     // same card: there is nothing to name and nothing to count. Naming a deleted list over
     // an empty widget would be worse than admitting there is none.
-    if (entityId === undefined || !listExists(this.hass, entityId)) return this._renderBlank()
+    if (!sample && !listExists(this.hass, entityId)) return this._renderBlank()
 
     const geometry = geometryFor({ width: this.boxWidth, height: this.boxHeight }, this.scaleFactor)
-    const list = listFor(this._items ?? [], this._pins, Date.now(), this._config.blocklist)
+    const items = sample ? PICKER_ITEMS : this._items
+    const list = listFor(items ?? [], this._pins, Date.now(), this._config.blocklist)
     // Use the full row list so a tight layout cannot trigger an empty message.
     let emptyMessage: string | undefined
-    if (this._items !== undefined && list.rows.length === 0) {
+    if (items !== undefined && list.rows.length === 0) {
       emptyMessage = list.allComplete ? ALL_COMPLETE : NO_REMINDERS
     }
-    const name = listName(this.hass, entityId)
-    const badge = this._renderBadge(name, listIcon(this.hass, entityId))
-    const identity = this._renderIdentity(name, this._items === undefined ? undefined : list.count)
+    const name = sample ? 'Errands' : listName(this.hass, entityId!)
+    const badge = this._renderBadge(
+      name,
+      sample ? 'mdi:clipboard-list' : listIcon(this.hass, entityId!),
+    )
+    const identity = this._renderIdentity(name, items === undefined ? undefined : list.count)
     const view: ReminderView = geometry.view
 
     return html`
@@ -684,7 +691,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
             ${view === 'large' ? html`<div class="rule"></div>` : nothing}
             ${this._renderList(
               list.rows.slice(0, geometry.rows),
-              listCanComplete(this.hass, entityId),
+              !sample && listCanComplete(this.hass, entityId),
               emptyMessage,
             )}
           </div>
@@ -693,6 +700,13 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
     `
   }
 }
+
+const PICKER_ITEMS = readItems([
+  { summary: 'Pick up a parcel' },
+  { summary: 'Water the plants' },
+  { summary: 'Book a table' },
+  { summary: 'Return library books' },
+])
 
 registerCard(REMINDERS_CARD_TAG, CupertinoRemindersCard, {
   name: 'Cupertino Reminders',

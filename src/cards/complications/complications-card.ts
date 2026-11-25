@@ -1,6 +1,7 @@
 /** The standalone complications card arranges readings in a grid fitted to its box. */
 import { css, html, type TemplateResult } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
+import { pickerState } from '../../core/picker-state'
 import { defineElement, registerCard } from '../../core/register'
 import type { LovelaceCardEditor } from '../../core/types/ha'
 import {
@@ -11,6 +12,25 @@ import { COMPLICATION_EDITOR_TAG } from './complications-editor'
 import { complicationGrid } from './layout'
 
 export type { ComplicationsCardConfig } from './complication-card-base'
+
+const PICKER_STATES = [
+  pickerState('sensor.cw_picker_temperature', '21', {
+    friendly_name: 'Temperature',
+    device_class: 'temperature',
+    unit_of_measurement: '°C',
+  }),
+  pickerState('sensor.cw_picker_humidity', '58', {
+    friendly_name: 'Humidity',
+    device_class: 'humidity',
+    unit_of_measurement: '%',
+  }),
+  pickerState('sensor.cw_picker_battery', '82', {
+    friendly_name: 'Phone',
+    device_class: 'battery',
+    unit_of_measurement: '%',
+  }),
+]
+const PICKER_ROWS = PICKER_STATES.map(state => ({ entity: state.entity_id }))
 
 export const COMPLICATIONS_CARD_TAG = 'cupertino-complications-card'
 export const LEGACY_GAUGE_CARD_TAG = 'cupertino-gauge-card'
@@ -49,7 +69,14 @@ class CupertinoComplicationsCard extends CupertinoComplicationCardBase<Complicat
   }
 
   protected override render(): TemplateResult {
-    const rows = this.complicationRows()
+    const sample = this.inCardPicker && this.hass
+    const rows = sample ? PICKER_ROWS : this.complicationRows()
+    const hass = sample
+      ? {
+          ...sample,
+          states: Object.fromEntries(PICKER_STATES.map(state => [state.entity_id, state])),
+        }
+      : this.hass
     const grid = complicationGrid(rows.length, this.boxWidth, this.boxHeight, this.scaleFactor)
     const content = rows.length
       ? html`
@@ -60,7 +87,7 @@ class CupertinoComplicationsCard extends CupertinoComplicationCardBase<Complicat
               '--cw-gauge-size': `calc(${grid.diameter}px * var(--cw-scale))`,
             })}
           >
-            ${rows.slice(0, grid.visible).map(row => this.renderComplicationCell(row, grid.diameter))}
+            ${rows.slice(0, grid.visible).map(row => this.renderComplicationCell(row, grid.diameter, hass))}
           </div>
         `
       : html`<div class="empty">Choose entities to display.</div>`

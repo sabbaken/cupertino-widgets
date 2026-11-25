@@ -2,11 +2,13 @@
  * Each tile owns a single entity. The grid can change shape as a unit while the
  * keyed buttons keep their identity, even when the dashboard is resized.
  */
+import { mdiTuneVariant } from '@mdi/js'
 import { css, html, nothing, type PropertyValues } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { styleMap } from 'lit/directives/style-map.js'
 
 import { CupertinoCard } from '../../core/base-card'
+import { pickerState } from '../../core/picker-state'
 import { registerCard } from '../../core/register'
 import type { HassEntity, HomeAssistant } from '../../core/types/ha'
 import { baseStyles } from '../../theme/base-styles'
@@ -23,6 +25,37 @@ import { CONTROLS_EDITOR_TAG } from './controls-editor'
 import { controlsRecommendations } from './recommendations'
 
 export const CONTROLS_CARD_TAG = 'cupertino-widgets-controls'
+
+const PICKER_CONTROLS = [
+  {
+    area: 'Study',
+    state: pickerState('light.cw_picker', 'on', {
+      friendly_name: 'Desk lamp',
+      icon: 'mdi:desk-lamp',
+      brightness: 192,
+    }),
+  },
+  {
+    area: 'Bedroom',
+    state: pickerState('fan.cw_picker', 'off', { friendly_name: 'Fan', icon: 'mdi:fan' }),
+  },
+  {
+    area: 'Living room',
+    state: pickerState('cover.cw_picker', 'open', {
+      friendly_name: 'Blinds',
+      icon: 'mdi:blinds-open',
+    }),
+  },
+  {
+    area: 'Kitchen',
+    state: pickerState('switch.cw_picker', 'off', {
+      friendly_name: 'Coffee maker',
+      icon: 'mdi:coffee-maker',
+    }),
+  },
+]
+const PICKER_BY_ID = new Map(PICKER_CONTROLS.map(control => [control.state.entity_id, control]))
+const PICKER_IDS = [...PICKER_BY_ID.keys()]
 
 const TOGGLE_CONFIRMATION_MS = 5_000
 
@@ -213,9 +246,22 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
       }
 
       .empty {
-        margin: var(--cw-controls-inset);
+        flex: 1;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: calc(8px * var(--cw-scale));
+        padding: var(--cw-inset);
+        margin: 0;
+        text-align: center;
         color: var(--cw-label-secondary);
         font: var(--cw-text-footnote);
+      }
+
+      .empty svg {
+        width: calc(24px * var(--cw-scale));
+        height: calc(24px * var(--cw-scale));
+        fill: currentColor;
       }
     `,
   ]
@@ -324,6 +370,7 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
   }
 
   private _moreInfo(entityId: string): void {
+    if (this.inCardPicker) return
     this.dispatchEvent(
       new CustomEvent('hass-more-info', {
         detail: { entityId },
@@ -339,7 +386,7 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
   }
 
   private _activate(event: MouseEvent, id: string): void {
-    if (this.preview || (event.detail > 0 && this._suppressClick)) return
+    if (this.inCardPicker || this.preview || (event.detail > 0 && this._suppressClick)) return
     const entity = this.hass?.states[id]
     const domain = this._toggleService(id)
     if (!domain || !entity || ['unavailable', 'unknown'].includes(entity.state)) {
@@ -367,7 +414,7 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
   }
 
   private _startPress(event: PointerEvent, id: string): void {
-    if (this.preview || event.button !== 0 || !event.isPrimary) return
+    if (this.inCardPicker || this.preview || event.button !== 0 || !event.isPrimary) return
     this._cancelPress()
     this._suppressClick = false
     this._press = {
@@ -401,9 +448,10 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
     const hass = this.hass
     const config = this._config
     if (!hass || !config) return nothing
-    const manual = controlsEntities(config.entities)
+    const sample = this.inCardPicker
+    const manual = sample ? PICKER_IDS : controlsEntities(config.entities)
     const grid = this._grid(config, manual.length)
-    this._recommended = controlsRecommendations(hass, config, manual, grid.capacity)
+    this._recommended = sample ? [] : controlsRecommendations(hass, config, manual, grid.capacity)
     const ids = [...manual.slice(0, grid.capacity), ...this._recommended]
     const iconOnly =
       grid.shape === 'square' && config.show_name === false && config.show_area === false
@@ -424,18 +472,22 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
                     ids,
                     id => id,
                     id => {
-                      const entity = this._displayEntity(hass.states[id])
+                      const sampleControl = sample ? PICKER_BY_ID.get(id) : undefined
+                      const entity = sampleControl?.state ?? this._displayEntity(hass.states[id])
                       const state = entity?.state ?? 'unavailable'
                       const available = state !== 'unavailable' && state !== 'unknown'
                       const active = entity && available ? controlsActive(entity) : false
                       const domain = id.split('.')[0]
                       const name =
-                        (entity && hass.formatEntityName?.(entity)) ||
-                        hass.entities?.[id]?.name ||
+                        (sample
+                          ? undefined
+                          : (entity && hass.formatEntityName?.(entity)) ||
+                            hass.entities?.[id]?.name) ||
                         entity?.attributes.friendly_name ||
                         id
-                      const areaId = controlsAreaId(hass, id)
-                      const area = areaId ? hass.areas?.[areaId]?.name : undefined
+                      const areaId = sample ? undefined : controlsAreaId(hass, id)
+                      const area =
+                        sampleControl?.area ?? (areaId ? hass.areas?.[areaId]?.name : undefined)
                       const status = controlsState(hass, entity)
                       const label = [config.show_area !== false ? area : undefined, name, status]
                         .filter(Boolean)
@@ -443,6 +495,7 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
                       return html`
                         <button
                           type="button"
+                          ?disabled=${sample}
                           class=${`cw-pressable ${active ? 'active' : available ? '' : 'unavailable'}`}
                           style=${styleMap({ '--cw-controls-state': controlsStateColor(domain, state, active, entity?.attributes.device_class, entity?.attributes.rgb_color) })}
                           title=${label}
@@ -491,11 +544,16 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
                 </div>
               `
             : html`<p class="empty">
-                ${
-                  config.recommend_devices === false
-                    ? 'Choose entities in the card editor.'
-                    : 'No devices to recommend.'
-                }
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d=${mdiTuneVariant}></path>
+                </svg>
+                <span>
+                  ${
+                    config.recommend_devices === false
+                      ? 'Choose entities in the card editor.'
+                      : 'No devices to recommend.'
+                  }
+                </span>
               </p>`
         }
       </ha-card>

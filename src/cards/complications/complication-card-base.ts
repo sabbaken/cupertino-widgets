@@ -131,15 +131,14 @@ export abstract class CupertinoComplicationCardBase<
     if (this.isConnected) this._forecast.sync(this.hass?.connection, weather)
   }
 
-  protected renderComplicationCell(row: ComplicationRow, diameter: number): TemplateResult {
+  protected renderComplicationCell(
+    row: ComplicationRow,
+    diameter: number,
+    hass = this.hass,
+  ): TemplateResult {
     const zone = this.hass?.config.time_zone ?? 'UTC'
     const forecast = todaysRange(this._forecast.read(row.entity), Date.now(), zone)
-    const complication = readComplication(
-      this.hass,
-      row,
-      forecast,
-      this._lastStates.get(row.entity),
-    )
+    const complication = readComplication(hass, row, forecast, this._lastStates.get(row.entity))
     const temperature = complication.key === 'temperature'
     const sensorTemperature =
       temperature && !complication.metric && complication.reading.includes('°')
@@ -201,7 +200,7 @@ export abstract class CupertinoComplicationCardBase<
         class="cell cw-pressable"
         title=${name}
         aria-label=${name}
-        ?disabled=${!this.hass?.states[row.entity]}
+        ?disabled=${this.inCardPicker || !hass?.states[row.entity]}
         ?data-unavailable=${!complication.available}
         ?data-degree=${sensorTemperature}
         ?data-weather-dial=${weatherDial}

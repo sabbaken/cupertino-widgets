@@ -674,6 +674,7 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
    * through it; a `preview` guard of our own would be dead code claiming otherwise.
    */
   private _open(item: CalendarItem): void {
+    if (this.inCardPicker) return
     const target = itemTarget(item)
     if (!this.hass?.panels?.[target.panel]) return
     cwNavigate(target.path)
@@ -807,7 +808,11 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
 
     const now = this._now
     const { locale, hour12 } = timePreferences(this.hass?.locale, this._config.time_format)
-    const ctx: FormatContext = { locale, timeZone: this._timeZone, hour12 }
+    const ctx: FormatContext = {
+      locale,
+      timeZone: this.inCardPicker ? undefined : this._timeZone,
+      hour12,
+    }
 
     const mode = modeFor(
       { width: this.boxWidth, height: this.boxHeight },
@@ -815,7 +820,7 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
       this._config.single_column,
     )
     const singleColumn = mode === 'single'
-    const fixtures = this._fixtures
+    const fixtures = this.inCardPicker ? 'all-day-busy' : this._fixtures
     // One pile, and `buildFlow` sorts it: events and reminders share a stream rather than
     // being drawn in sections of their own (§2). The fixtures already hold both.
     const items =

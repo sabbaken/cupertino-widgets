@@ -69,6 +69,17 @@ export abstract class CupertinoCard<C extends CupertinoCardConfig = CupertinoCar
    */
   @property({ type: Boolean }) public preview = false
 
+  /** The picker reuses its stub config when adding a card. Its preview wrapper keeps
+   * sample data out of that config and out of the dashboard's edit mode. */
+  protected get inCardPicker(): boolean {
+    const root = this.getRootNode()
+    return (
+      root instanceof ShadowRoot &&
+      root.host.localName === 'hui-card-picker' &&
+      this.parentElement?.classList.contains('preview') === true
+    )
+  }
+
   @state() protected _config?: C
 
   /**
@@ -230,6 +241,7 @@ export abstract class CupertinoCard<C extends CupertinoCardConfig = CupertinoCar
 
   public override connectedCallback(): void {
     super.connectedCallback()
+    this.requestUpdate()
     // The default footprint until the first measurement corrects it; see `_applyMinHeight`
     // for what it is for and what the measurement does to it.
     this._applyMinHeight()
