@@ -1,4 +1,4 @@
-# Gauge: the rules of the shared dial
+# Complications: the rules of the shared dial
 
 The first thing in this library that is not a card. The battery card's ring became this when it
 turned out to be the shape three widgets want: a track, a mark on it, and a reading in the
@@ -6,8 +6,8 @@ middle. Everything below was either taken off the reference's own lock-screen ga
 measuring a screenshot, or is a decision made here with the alternative it beat written beside
 it.
 
-The code is `src/ui/gauge/`: `geometry.ts` for the arithmetic, `gauge.ts` for the stylesheet and
-the template, and a `*.test.ts` beside each. It is **not a custom element**, and `gauge.ts`'s
+The code is `src/ui/complication/`: `geometry.ts` for the arithmetic, `complication.ts` for the stylesheet and
+the template, and a `*.test.ts` beside each. It is **not a custom element**, and `complication.ts`'s
 own comment carries that argument at length; the short version is that the `--cw-*` tokens are
 declared on a card's `:host`, `--cw-scale` is set inline on that same element and `[dark]` is
 reflected onto it, so a nested shadow root would be a component that either fights the token
@@ -50,7 +50,7 @@ A sweep is where the track starts and how far it runs, in clock degrees, clockwi
 sweeping the annulus a degree at a time puts the ink between 219 and 141 degrees. A round cap
 adds half a stroke past each end of the dash, 7.3 degrees at the reference's proportions, so the
 geometric track is 225 to 135: a 90 degree notch centred on six o'clock. Our own cap is
-`GAUGE_STROKE / 2 / GAUGE_RADIUS`, 6.4 degrees, so what this library draws is 282.7 degrees of
+`COMPLICATION_STROKE / 2 / COMPLICATION_RADIUS`, 6.4 degrees, so what this library draws is 282.7 degrees of
 ink and a **visible** notch of 77.3. That is the number to compare against a screenshot.
 
 The notch is not decoration. It is what gives the two end readings somewhere to sit and keeps
@@ -250,8 +250,8 @@ already scaled.
 
 ## 9. What a card is responsible for
 
-- **Composing `gaugeStyles`** into its own `static styles`, after `CupertinoCard.styles`. The
-  gauge has no shadow root of its own, so a card that calls `renderGauge` without that sheet
+- **Composing `complicationStyles`** into its own `static styles`, after `CupertinoCard.styles`. The
+  gauge has no shadow root of its own, so a card that calls `renderComplication` without that sheet
   draws unstyled markup. `src/cards/battery/battery-card.ts` is the worked example.
 - **The accessible name.** The dial is `aria-hidden`: it is a picture of a number. The battery
   card names its cell, and any card with a tap target does the same. The middle's text is left
@@ -265,7 +265,7 @@ already scaled.
 The battery card's ring, which is the one that exists:
 
 ```ts
-renderGauge({
+renderComplication({
   value: device.level, // 0-100 already, so min and max are the defaults
   sweep: FULL_TURN,
   mark: 'arc',
@@ -277,7 +277,7 @@ renderGauge({
 A temperature dial, which is the shape this component was generalised for:
 
 ```ts
-renderGauge({
+renderComplication({
   value: current,
   min: low,
   max: high,
@@ -290,7 +290,7 @@ renderGauge({
 A humidity dial, which is the same dial with nothing at the ends:
 
 ```ts
-renderGauge({
+renderComplication({
   value: humidity,
   mark: 'dot',
   reading: `${Math.round(humidity)}%`,
@@ -315,7 +315,7 @@ renderGauge({
 ## 12. Where the tests are
 
 `geometry.test.ts` covers the arithmetic, including the battery ring's own cases carried over
-from the module this grew out of. `gauge.test.ts` covers the template, by flattening lit's
+from the module this grew out of. `complication.test.ts` covers the template, by flattening lit's
 `TemplateResult` back into markup in the same `node` environment the rest of the suite runs in.
 That second file exists because everything the drawing can get wrong is invisible to `tsc`, to
 the geometry tests and to `pnpm shots` alike: the guard that keeps a zero-length dash from

@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
   FULL_TURN,
-  GAUGE_CENTER,
-  GAUGE_CIRCUMFERENCE,
+  COMPLICATION_CENTER,
+  COMPLICATION_CIRCUMFERENCE,
   OPEN_DIAL,
   endPointsFor,
   pointAt,
   trackLength,
 } from './geometry'
-import { renderGauge, type GaugeSpec } from './gauge'
+import { renderComplication, type ComplicationSpec } from './complication'
 
 /**
  * What a gauge would put in the DOM, as a string, without a DOM.
@@ -35,7 +35,7 @@ const markup = (value: unknown): string => {
   return String(value)
 }
 
-const drawn = (spec: GaugeSpec): string => markup(renderGauge(spec))
+const drawn = (spec: ComplicationSpec): string => markup(renderComplication(spec))
 
 /** Every number the template interpolates, in order. */
 const numbersIn = (value: unknown): number[] => {
@@ -47,14 +47,14 @@ const numbersIn = (value: unknown): number[] => {
   return []
 }
 
-const battery = (level: number | null): GaugeSpec => ({
+const battery = (level: number | null): ComplicationSpec => ({
   value: level,
   sweep: FULL_TURN,
   mark: 'arc',
   glyph: 'mdi:battery',
 })
 
-const dial = (value: number | null, extra: Partial<GaugeSpec> = {}): GaugeSpec => ({
+const dial = (value: number | null, extra: Partial<ComplicationSpec> = {}): ComplicationSpec => ({
   value,
   min: 8,
   max: 24,
@@ -99,17 +99,32 @@ describe('what a gauge draws', () => {
     expect(drawing.indexOf('cw-gauge-dot')).toBeGreaterThan(drawing.indexOf('</g>'))
   })
 
+  it('draws the same complete gradient at both ends of the scale', () => {
+    const colours = ['green', 'yellow', 'red']
+    const empty = drawn(dial(8, { trackColours: colours, mark: 'arc' }))
+    const full = drawn(dial(24, { trackColours: colours, mark: 'arc' }))
+    const gradient = /conic-gradient\([^)]*\)/
+    expect(empty.match(gradient)?.[0]).toContain('red 270deg')
+    expect(empty.match(gradient)?.[0]).toBe(full.match(gradient)?.[0])
+    for (const view of [empty, full]) {
+      expect(view).toContain('cw-gauge-dot')
+      expect(view).not.toContain('cw-gauge-arc')
+    }
+  })
+
   it('draws one kind of mark or the other, never both', () => {
     expect(drawn(dial(14))).not.toContain('cw-gauge-arc')
     expect(drawn({ value: 50, mark: 'arc' })).not.toContain('cw-gauge-dot')
   })
 
   it('turns the track to the start of its sweep, and leaves a closed circle undashed', () => {
-    expect(drawn(battery(50))).toContain(`rotate(-90 ${GAUGE_CENTER} ${GAUGE_CENTER})`)
+    expect(drawn(battery(50))).toContain(
+      `rotate(-90 ${COMPLICATION_CENTER} ${COMPLICATION_CENTER})`,
+    )
     expect(drawn(battery(50))).not.toContain('stroke-dasharray=282')
-    expect(drawn(dial(14))).toContain(`rotate(135 ${GAUGE_CENTER} ${GAUGE_CENTER})`)
+    expect(drawn(dial(14))).toContain(`rotate(135 ${COMPLICATION_CENTER} ${COMPLICATION_CENTER})`)
     expect(drawn(dial(14))).toContain(
-      `stroke-dasharray=${trackLength(OPEN_DIAL)} ${GAUGE_CIRCUMFERENCE}`,
+      `stroke-dasharray=${trackLength(OPEN_DIAL)} ${COMPLICATION_CIRCUMFERENCE}`,
     )
   })
 })
@@ -154,10 +169,10 @@ describe('what a gauge refuses to put in an attribute', () => {
    * Nothing here is theoretical: `stroke-dasharray="NaN 282.7"` computes to `none`, which is a
    * SOLID stroke, so a sensor with nothing to say would read as full. `cx="NaN"` computes to 0
    * and parks the dot in the corner of the box. The guards are in `fractionFor` and in
-   * `renderGauge`; this is the assertion that they are both still there.
+   * `renderComplication`; this is the assertion that they are both still there.
    */
   it('never interpolates a number that is not one, whatever it is handed', () => {
-    const nonsense: GaugeSpec[] = [
+    const nonsense: ComplicationSpec[] = [
       { value: Number.NaN, mark: 'dot' },
       { value: 5, min: Number.NaN, max: 10, mark: 'dot' },
       { value: 5, min: Number.NEGATIVE_INFINITY, max: 100, mark: 'dot' },
@@ -173,7 +188,7 @@ describe('what a gauge refuses to put in an attribute', () => {
     for (const spec of nonsense) {
       const drawing = drawn(spec)
       if (/NaN|Infinity/.test(drawing)) broken.push(`${JSON.stringify(spec)} drew ${drawing}`)
-      for (const number of numbersIn(renderGauge(spec))) {
+      for (const number of numbersIn(renderComplication(spec))) {
         if (!Number.isFinite(number)) broken.push(`${JSON.stringify(spec)} interpolated ${number}`)
       }
     }

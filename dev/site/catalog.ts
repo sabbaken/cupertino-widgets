@@ -13,15 +13,24 @@
  * applied last precisely because it must never end up in that YAML.
  */
 
-import { mdiBatteryHigh, mdiCalendarMonth, mdiFormatListChecks, mdiToggleSwitch } from '@mdi/js'
+import {
+  mdiBatteryHigh,
+  mdiCalendarMonth,
+  mdiFormatListChecks,
+  mdiGauge,
+  mdiToggleSwitch,
+} from '@mdi/js'
 
 import { DEMO_SCENARIOS, DEFAULT_DEMO_SCENARIO } from '../../src/cards/calendar/demo-data'
 import {
   BATTERY_CARD_TAG,
   CALENDAR_CARD_TAG,
   CONTROLS_CARD_TAG,
+  COMPLICATIONS_CARD_TAG,
   REMINDERS_CARD_TAG,
 } from '../../src/index'
+import { COMPLICATION_APPEARANCES } from '../../src/cards/complications/model'
+import { COMPLICATION_SETS } from '../complications-entities'
 import { CONTROL_STATES } from '../control-entities'
 import { DEFAULT_DEVICE_SET, DEVICE_SETS, deviceSet } from '../battery-devices'
 import { DEFAULT_REMINDER_LIST, REMINDER_LISTS, reminderList } from '../reminders-lists'
@@ -352,9 +361,62 @@ const controls: Widget = {
   },
 }
 
-export const WIDGETS: readonly Widget[] = [calendar, battery, reminders, controls]
+const complications: Widget = {
+  id: 'complications',
+  name: 'Complications',
+  tagline: 'Read different sensors together.',
+  icon: mdiGauge,
+  tag: COMPLICATIONS_CARD_TAG,
+  props: [
+    {
+      kind: 'select',
+      name: 'example',
+      label: 'Example',
+      group: 'card',
+      initial: 'mixed',
+      options: [
+        { value: 'mixed', label: 'Mixed complications' },
+        { value: 'weather', label: 'Weather readings' },
+        { value: 'indoor', label: 'Indoor sensors' },
+      ],
+    },
+    {
+      kind: 'select',
+      name: 'color_mode',
+      label: 'Appearance',
+      group: 'card',
+      initial: 'color',
+      options: Object.entries(COMPLICATION_APPEARANCES).map(([value, label]) => ({ value, label })),
+    },
+  ],
+  toConfig(args) {
+    const example = readString(args, 'example', 'mixed')
+    const rows =
+      example === 'weather'
+        ? COMPLICATION_SETS.weather
+        : example === 'indoor'
+          ? COMPLICATION_SETS.indoor
+          : COMPLICATION_SETS.mixed
+    const appearance = readString(args, 'color_mode', 'color')
+    return {
+      entities:
+        appearance !== 'color'
+          ? rows.map(row => ({
+              ...(typeof row === 'string' ? { entity: row } : row),
+              color_mode: appearance,
+            }))
+          : rows,
+    }
+  },
+  toFixture() {
+    return {}
+  },
+}
 
-export const widgetById = (id: string): Widget | undefined => WIDGETS.find(w => w.id === id)
+export const WIDGETS: readonly Widget[] = [calendar, battery, reminders, controls, complications]
+
+export const widgetById = (id: string): Widget | undefined =>
+  WIDGETS.find(w => w.id === (id === 'gauge' ? complications.id : id))
 
 /**
  * The rest of the library, as the README's table has it.

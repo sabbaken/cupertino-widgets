@@ -1,5 +1,6 @@
 /**
- * The gauge: a track, a mark on it, and something in the middle.
+ * Shared complication template for rings, dials and discs.
+ * The cw-gauge CSS hooks retain their original names for existing dashboard styles.
  *
  * The library's first shared piece of widget, and it is deliberately **not a custom element**.
  * Three reasons, in the order they would bite:
@@ -66,8 +67,8 @@
  * card: it is a picture of a number. The middle's text is left readable, because for a card
  * whose whole subject is that one reading it is the headline rather than decoration.
  *
- * Two halves, and the class names are the contract between them: `gaugeStyles` below and
- * `renderGauge` under it. `geometry.ts` holds the arithmetic both of them quote.
+ * Two halves, and the class names are the contract between them: `complicationStyles` below and
+ * `renderComplication` under it. `geometry.ts` holds the arithmetic both of them quote.
  */
 
 import {
@@ -81,10 +82,11 @@ import {
 } from 'lit'
 
 import {
-  GAUGE_BOX,
-  GAUGE_CENTER,
-  GAUGE_RADIUS,
-  GAUGE_STROKE,
+  FULL_TURN,
+  COMPLICATION_BOX,
+  COMPLICATION_CENTER,
+  COMPLICATION_RADIUS,
+  COMPLICATION_STROKE,
   MARK_DOT,
   MARK_KNOCKOUT,
   OPEN_DIAL,
@@ -95,7 +97,7 @@ import {
   pointAt,
   rotationFor,
   trackDash,
-  type GaugeSweep,
+  type ComplicationSweep,
 } from './geometry'
 
 // ---- What a caller asks for ----
@@ -114,18 +116,25 @@ import {
  * tone the whole way round. `geometry.ts` computes them from the same fraction, so the day
  * something does want both, this is a union to widen rather than a shape to rebuild.
  */
-export type GaugeMark = 'arc' | 'dot'
+export type ComplicationMark = 'arc' | 'dot'
 
-export interface GaugeSpec {
+export type ComplicationForm = 'ring' | 'dial' | 'disc'
+
+export interface ComplicationSpec {
+  form?: ComplicationForm
+  glyphPosition?: 'top' | 'bottom'
+  /** Colours sampled at equal intervals along the sweep, including both ends. */
+  trackColours?: readonly string[]
+
   /** The reading, or `null` when there is not one: an unavailable entity, a scale of no width. */
   value: number | null | undefined
   /** The scale it is read against. The defaults are a percentage, which most gauges are. */
   min?: number
   max?: number
-  /** Defaults to the notched dial; the battery card passes `FULL_TURN`. */
-  sweep?: GaugeSweep
+  /** Overrides the default sweep for a ring or dial. */
+  sweep?: ComplicationSweep
   /** Defaults to the filled arc. */
-  mark?: GaugeMark
+  mark?: ComplicationMark
   /**
    * What goes in the middle, drawn in this order and each one when it is there: the reading
    * large, a word under it, a glyph under that. The battery card passes the glyph alone, which
@@ -134,7 +143,9 @@ export interface GaugeSpec {
    * rule to remember for that: a piece of the stack standing alone is sized as though it were
    * the middle, because it is.
    */
+  heading?: string
   reading?: string
+  readingSuffix?: string
   caption?: string
   /** An `mdi:` name, drawn through `ha-icon`. */
   glyph?: string
@@ -174,7 +185,7 @@ export interface GaugeSpec {
  * published for an overlay to hang off, and derived from the constants rather than written out
  * as the 0.05 it comes to.
  */
-export const gaugeStyles: CSSResult = css`
+export const complicationStyles: CSSResult = css`
   .cw-gauge {
     position: relative;
     flex: none;
@@ -182,10 +193,30 @@ export const gaugeStyles: CSSResult = css`
        SVG default; the module comment has the argument. */
     width: var(--cw-gauge-size, 0);
     height: var(--cw-gauge-size, 0);
-    --cw-gauge-centerline: calc(var(--cw-gauge-size, 0) * ${GAUGE_STROKE / 2 / GAUGE_BOX});
+    --cw-gauge-centerline: calc(
+      var(--cw-gauge-size, 0) * ${COMPLICATION_STROKE / 2 / COMPLICATION_BOX}
+    );
+  }
+
+  .cw-gauge-disc {
+    border-radius: 50%;
+    background: var(--cw-track);
+  }
+
+  .cw-gauge-gradient {
+    position: absolute;
+    inset: 0;
+    mask-image: radial-gradient(
+      circle closest-side,
+      transparent 79.5%,
+      black 80.5%,
+      black 99.5%,
+      transparent 100%
+    );
   }
 
   .cw-gauge-dial {
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;
@@ -243,6 +274,36 @@ export const gaugeStyles: CSSResult = css`
     white-space: nowrap;
   }
 
+  .cw-gauge-open .cw-gauge-center {
+    top: 46%;
+  }
+
+  .cw-gauge-footer {
+    position: absolute;
+    top: 84%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .cw-gauge-ring
+    .cw-gauge-center:has(.cw-gauge-value)
+    :is(.cw-gauge-caption, .cw-gauge-glyph-bottom) {
+    transform: translateY(calc(var(--cw-gauge-size, 0) * 0.02));
+  }
+
+  .cw-gauge-heading {
+    font: 650 calc(var(--cw-gauge-size, 0) * 0.17) / 1 var(--cw-font);
+    color: var(--cw-gauge-glyph-ink, var(--cw-label));
+  }
+
+  .cw-gauge-reading-suffix {
+    font-size: 0.58em;
+  }
+
   /* Two sizes for one piece of type, and :only-child is what picks between them: a reading that
      stands alone is set at 0.42 of the diameter and one with a line under it at 0.30. Both are
      fitted off the reference rather than picked: a circle fitted to each dial's ink puts the
@@ -276,11 +337,15 @@ export const gaugeStyles: CSSResult = css`
      the reference's own sun takes. */
   .cw-gauge-glyph {
     --mdc-icon-size: calc(var(--cw-gauge-size, 0) * var(--cw-gauge-glyph-scale, 0.16));
-    color: var(--cw-gauge-ink, var(--cw-label));
+    color: var(--cw-gauge-glyph-ink, var(--cw-gauge-ink, var(--cw-label)));
   }
 
   .cw-gauge-glyph:only-child {
     --mdc-icon-size: calc(var(--cw-gauge-size, 0) * var(--cw-gauge-glyph-scale, 0.45));
+  }
+
+  .cw-gauge-footer .cw-gauge-glyph {
+    --mdc-icon-size: calc(var(--cw-gauge-size, 0) * var(--cw-gauge-glyph-scale, 0.27));
   }
 
   /* Hung by the edge nearest its end of the track and grown into the notch, which is why the
@@ -297,6 +362,7 @@ export const gaugeStyles: CSSResult = css`
      glyphs a side, and the knob is there for the card that prints five. */
   .cw-gauge-end {
     position: absolute;
+    margin-top: calc(var(--cw-gauge-size, 0) * 0.02);
     transform: translateY(-50%);
     font: 400 calc(var(--cw-gauge-size, 0) * var(--cw-gauge-end-scale, 0.12)) / 1 var(--cw-font);
     font-variant-numeric: tabular-nums;
@@ -334,76 +400,136 @@ export const gaugeStyles: CSSResult = css`
  * length by making a reading at the top of the scale stop short of the top of the dial: a
  * quieter picture telling a small lie, against a truthful one with a chipped end.
  */
-export const renderGauge = (spec: GaugeSpec): TemplateResult => {
+export const renderComplication = (spec: ComplicationSpec): TemplateResult => {
   // A sweep is the one input that does not go through `fractionFor`, and a card that computes
   // one from a config value can hand over a NaN. It has to be caught here rather than five
   // lines down, because every way it reaches the DOM is silent: `stroke-dasharray="NaN …"`
   // computes to `none`, which is a SOLID ring, so a dial with a broken sweep would read as a
   // full one; `rotate(NaN 50 50)` invalidates the whole transform and starts the track at three
   // o'clock; `cx="NaN"` computes to 0 and parks the dot in the corner of the box.
-  const asked = spec.sweep ?? OPEN_DIAL
+  const asked = spec.sweep ?? (spec.form === 'ring' ? FULL_TURN : OPEN_DIAL)
   const sweep = Number.isFinite(asked.start) && Number.isFinite(asked.extent) ? asked : OPEN_DIAL
-  const mark = spec.mark ?? 'arc'
+  const colours = spec.trackColours
+  const hasGradient = !!colours && colours.length > 1
+  const mark = hasGradient ? 'dot' : (spec.mark ?? 'arc')
   const fraction = fractionFor(spec.value, spec.min ?? 0, spec.max ?? 100)
 
   const arc = mark === 'arc' ? arcFor(fraction, sweep) : 0
   const dot = mark === 'dot' && fraction !== null ? pointAt(fraction, sweep) : null
   const dash = trackDash(sweep)
   const ends = spec.ends ? endPointsFor(sweep) : null
+  const gradient = hasGradient
+    ? `conic-gradient(from ${sweep.start}deg, ${colours
+        .map((colour, i) => `${colour} ${(sweep.extent * i) / (colours.length - 1)}deg`)
+        .join(', ')}, transparent ${sweep.extent}deg)`
+    : undefined
+  const caps =
+    gradient && sweep.extent < 360
+      ? [
+          { point: pointAt(0, sweep), colour: colours?.[0] },
+          { point: pointAt(1, sweep), colour: colours?.at(-1) },
+        ]
+      : []
+  const glyph = spec.glyph
+    ? html`<ha-icon
+        class=${spec.glyphPosition === 'top' ? 'cw-gauge-glyph' : 'cw-gauge-glyph cw-gauge-glyph-bottom'}
+        .icon=${spec.glyph}
+      ></ha-icon>`
+    : nothing
+
+  const track = svg`<circle
+        class="cw-gauge-track"
+        cx=${COMPLICATION_CENTER}
+        cy=${COMPLICATION_CENTER}
+        r=${COMPLICATION_RADIUS}
+        stroke-width=${COMPLICATION_STROKE}
+        stroke-dasharray=${dash === null ? nothing : dashArray(dash)}
+      />`
+  // A zero-length round dash would still leave a pip at the start of an empty ring.
+  const fill =
+    arc > 0
+      ? svg`<circle
+        class="cw-gauge-arc"
+        cx=${COMPLICATION_CENTER}
+        cy=${COMPLICATION_CENTER}
+        r=${COMPLICATION_RADIUS}
+        stroke-width=${COMPLICATION_STROKE}
+        stroke-dasharray=${dashArray(arc)}
+      />`
+      : nothing
+  const marker = dot
+    ? svg`<circle class="cw-gauge-knockout" cx=${dot.x} cy=${dot.y} r=${MARK_KNOCKOUT} />
+          <circle class="cw-gauge-dot" cx=${dot.x} cy=${dot.y} r=${MARK_DOT} />`
+    : nothing
+  const dial =
+    spec.form === 'disc'
+      ? nothing
+      : html`
+          ${gradient ? html`<div class="cw-gauge-gradient" style=${`background: ${gradient}`}></div>` : nothing}
+          <svg
+            class="cw-gauge-dial"
+            viewBox="0 0 ${COMPLICATION_BOX} ${COMPLICATION_BOX}"
+            aria-hidden="true"
+          >
+            ${caps.map(
+              ({ point, colour }) => svg`<circle cx=${point.x} cy=${point.y}
+              r=${COMPLICATION_STROKE / 2} fill=${colour} />`,
+            )}
+            <g
+              transform="rotate(${rotationFor(sweep)} ${COMPLICATION_CENTER} ${COMPLICATION_CENTER})"
+            >
+              ${gradient ? nothing : track} ${fill}
+            </g>
+            ${marker}
+          </svg>
+        `
+
+  const open = spec.form === 'dial'
+  const separateFooter = open && !!spec.reading
+  const caption = spec.caption ? html`<div class="cw-gauge-caption">${spec.caption}</div>` : nothing
+  const lowerGlyph = spec.glyphPosition === 'top' ? nothing : glyph
+  const footer =
+    separateFooter && (caption !== nothing || lowerGlyph !== nothing)
+      ? html`<div class="cw-gauge-footer">${lowerGlyph}${caption}</div>`
+      : nothing
+  const face =
+    spec.form === 'disc'
+      ? 'cw-gauge-disc'
+      : open
+        ? 'cw-gauge-open'
+        : spec.form === 'ring'
+          ? 'cw-gauge-ring'
+          : ''
 
   return html`
-    <div class="cw-gauge">
-      <svg class="cw-gauge-dial" viewBox="0 0 ${GAUGE_BOX} ${GAUGE_BOX}" aria-hidden="true">
-        <g transform="rotate(${rotationFor(sweep)} ${GAUGE_CENTER} ${GAUGE_CENTER})">
-          <circle
-            class="cw-gauge-track"
-            cx=${GAUGE_CENTER}
-            cy=${GAUGE_CENTER}
-            r=${GAUGE_RADIUS}
-            stroke-width=${GAUGE_STROKE}
-            stroke-dasharray=${dash === null ? nothing : dashArray(dash)}
-          />
-          ${
-            // The guard is load-bearing rather than tidy: a dash of zero with a round cap is not
-            // nothing, it is a dot of the full stroke at the start of the sweep, so an empty
-            // battery would draw a green pip at twelve o'clock. `gauge.test.ts` pins it.
-            arc > 0
-              ? svg`<circle
-                  class="cw-gauge-arc"
-                  cx=${GAUGE_CENTER}
-                  cy=${GAUGE_CENTER}
-                  r=${GAUGE_RADIUS}
-                  stroke-width=${GAUGE_STROKE}
-                  stroke-dasharray=${dashArray(arc)}
-                />`
-              : nothing
-          }
-        </g>
-        ${
-          dot
-            ? svg`<circle class="cw-gauge-knockout" cx=${dot.x} cy=${dot.y} r=${MARK_KNOCKOUT} />
-                  <circle class="cw-gauge-dot" cx=${dot.x} cy=${dot.y} r=${MARK_DOT} />`
-            : nothing
-        }
-      </svg>
+    <div class=${face ? `cw-gauge ${face}` : 'cw-gauge'}>
+      ${dial}
       <div class="cw-gauge-center">
-        ${spec.reading ? html`<div class="cw-gauge-value">${spec.reading}</div>` : nothing}
-        ${spec.caption ? html`<div class="cw-gauge-caption">${spec.caption}</div>` : nothing}
+        ${spec.heading ? html`<div class="cw-gauge-heading">${spec.heading}</div>` : nothing}
+        ${spec.glyphPosition === 'top' ? glyph : nothing}
         ${
-          spec.glyph
-            ? html`<ha-icon class="cw-gauge-glyph" .icon=${spec.glyph}></ha-icon>`
+          spec.reading
+            ? html`<div class="cw-gauge-value">
+                ${spec.reading}${
+                  spec.readingSuffix
+                    ? html`<span class="cw-gauge-reading-suffix">${spec.readingSuffix}</span>`
+                    : nothing
+                }
+              </div>`
             : nothing
         }
+        ${separateFooter ? nothing : caption} ${separateFooter ? nothing : lowerGlyph}
       </div>
+      ${footer}
       ${
-        ends && spec.ends
+        spec.form !== 'disc' && ends && spec.ends
           ? html`
               <div class="cw-gauge-end" style=${`left: ${ends.min.x}%; top: ${ends.min.y}%`}>
                 ${spec.ends.min}
               </div>
               <div
                 class="cw-gauge-end"
-                style=${`right: ${GAUGE_BOX - ends.max.x}%; top: ${ends.max.y}%`}
+                style=${`right: ${COMPLICATION_BOX - ends.max.x}%; top: ${ends.max.y}%`}
               >
                 ${spec.ends.max}
               </div>

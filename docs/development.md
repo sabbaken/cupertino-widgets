@@ -224,9 +224,9 @@ src/
   theme/
     tokens.ts           --cw-* tokens, bridged onto Home Assistant theme variables
     base-styles.ts      structural CSS shared by every card
-  ui/gauge/             the shared dial: a track, a mark on it, a reading in the middle
+  ui/complication/      shared ring, dial and disc templates
     geometry.ts         sweeps, fractions, dashes and points, all in a 100-unit box
-    gauge.ts            the stylesheet a card composes and the template it calls
+    complication.ts     the stylesheet a card composes and the template it calls
   cards/<widget>/       one directory per widget
 dev/
   site/                 the showcase, one entry per widget in catalog.ts
@@ -328,7 +328,7 @@ different way than it is. Keep the tab in front, or take a screenshot to bring i
 - [`reminders-widget-rules.md`](reminders-widget-rules.md). The same for the reminders card:
   which of its three shapes a box gets, how many rows fit, and what a tap on a row does for
   the five seconds it can be taken back.
-- [`gauge-rules.md`](gauge-rules.md): the shared dial in `src/ui/gauge/`, which is a component
+- [`complication-rules.md`](complication-rules.md): the shared dial in `src/ui/complication/`, which is a component
   rather than a widget, so it has no footprint and no row budget. What it does have is a set of
   numbers fitted off the reference's own gauges: the notch, the stroke, the dot and the hole
   under it, and every type size in the middle.

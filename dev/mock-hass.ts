@@ -27,6 +27,12 @@
 
 import type { FrontendLocaleData, HassEntity, HomeAssistant } from '../src/core/types/ha'
 import { CONTROL_STATES } from './control-entities'
+import {
+  COMPLICATION_STATES,
+  COMPLICATION_WEATHER,
+  COMPLICATION_ZONE,
+  complicationForecast,
+} from './complications-entities'
 import { BATTERY_STATES } from './battery-devices'
 import { REMINDER_ITEMS, REMINDER_STATES, outstanding, type WireTodoItem } from './reminders-lists'
 
@@ -218,6 +224,7 @@ const STATES: Record<string, HassEntity> = {
   // them lives beside it.
   ...Object.fromEntries(REMINDER_STATES.map(one => [one.entity_id, one])),
   ...Object.fromEntries(CONTROL_STATES.map(one => [one.entity_id, one])),
+  ...Object.fromEntries(COMPLICATION_STATES.map(one => [one.entity_id, one])),
   ...Object.fromEntries(BATTERY_STATES.map(one => [one.entity_id, one])),
 }
 
@@ -450,7 +457,7 @@ export function createMockHass({ dark, timeFormat }: MockHassOptions): HomeAssis
      * day the harness grows something worth navigating to.
      */
     panels: {},
-    config: { time_zone: 'Europe/Warsaw', country: 'PL', version: '2026.7.4' },
+    config: { time_zone: COMPLICATION_ZONE, country: 'PL', version: '2026.7.4' },
     themes: { darkMode: dark, theme: 'default' },
     locale: {
       language: 'en',
@@ -469,6 +476,15 @@ export function createMockHass({ dark, timeFormat }: MockHassOptions): HomeAssis
         if (message.type === 'calendar/event/subscribe') {
           const entityId = String(message.entity_id)
           queueMicrotask(() => callback({ events: WIRE_EVENTS[entityId]?.() ?? [] } as never))
+        }
+
+        if (
+          message.type === 'weather/subscribe_forecast' &&
+          message.entity_id === COMPLICATION_WEATHER
+        ) {
+          queueMicrotask(() =>
+            callback({ type: 'daily', forecast: complicationForecast() } as never),
+          )
         }
 
         if (message.type === 'todo/item/subscribe') {

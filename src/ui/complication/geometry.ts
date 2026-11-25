@@ -3,7 +3,7 @@
  *
  * Everything here is in the gauge's own coordinate space rather than in pixels, and that is
  * what keeps a card's `layout.ts` and this file from having to agree about anything: the SVG
- * carries a `viewBox` of `GAUGE_BOX` square and is drawn at whatever diameter the card worked
+ * carries a `viewBox` of `COMPLICATION_BOX` square and is drawn at whatever diameter the card worked
  * out, so the stroke, the arc and the dot scale with it for free and `--cw-scale` never enters
  * into it. The one number the two halves share is the diameter, and it travels as a CSS
  * length: `--cw-gauge-size`.
@@ -51,13 +51,13 @@
  * gauge legible at 40, where it is 4px of stroke, without dominating at the top. The gauges
  * measured off the reference run at 11%, which is the same number once rounding is allowed for.
  */
-export const GAUGE_BOX = 100
-export const GAUGE_STROKE = 10
+export const COMPLICATION_BOX = 100
+export const COMPLICATION_STROKE = 10
 
 /** Centred inside the stroke, so the ink stays within the box rather than half outside it. */
-export const GAUGE_RADIUS = (GAUGE_BOX - GAUGE_STROKE) / 2
-export const GAUGE_CENTER = GAUGE_BOX / 2
-export const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS
+export const COMPLICATION_RADIUS = (COMPLICATION_BOX - COMPLICATION_STROKE) / 2
+export const COMPLICATION_CENTER = COMPLICATION_BOX / 2
+export const COMPLICATION_CIRCUMFERENCE = 2 * Math.PI * COMPLICATION_RADIUS
 
 /** A point in the box, which is also a percentage of it. See the module comment. */
 export interface GaugePoint {
@@ -77,7 +77,7 @@ export interface GaugePoint {
  * one, and a half dial or a three-quarter one is a perfectly designed gauge that this library
  * has simply not had a use for yet. The two below are the ones it has.
  */
-export interface GaugeSweep {
+export interface ComplicationSweep {
   /** Clock degrees at which the track starts. */
   readonly start: number
   /** How far it runs clockwise, in degrees. 360 closes the circle. */
@@ -91,7 +91,7 @@ export interface GaugeSweep {
  * full turn has no notch to be centred on, so nothing in the arithmetic below would otherwise
  * know that this one begins at the top.
  */
-export const FULL_TURN: GaugeSweep = { start: 0, extent: 360 }
+export const FULL_TURN: ComplicationSweep = { start: 0, extent: 360 }
 
 /**
  * The dial with a notch at the bottom, and both numbers are measured rather than chosen.
@@ -100,14 +100,14 @@ export const FULL_TURN: GaugeSweep = { start: 0, extent: 360 }
  * the annulus a degree at a time: the ink runs from 219 degrees round to 141, and a round cap
  * adds half a stroke beyond each end of the dash, 7.3 degrees at the reference's proportions.
  * So the geometric track is 225 to 135: a 270 degree sweep with a 90 degree notch centred on
- * six o'clock. Our own cap is `GAUGE_STROKE / 2 / GAUGE_RADIUS`, 6.4 degrees, so what this
+ * six o'clock. Our own cap is `COMPLICATION_STROKE / 2 / COMPLICATION_RADIUS`, 6.4 degrees, so what this
  * draws is 282.7 degrees of ink and a notch of 77.3, and that is the number to expect when
  * holding a screenshot of this card against a screenshot of the reference.
  *
  * The notch is not decoration. It is what buys the two end readings a place to sit and keeps
  * the bottom of the dial from competing with the caption inside it.
  */
-export const OPEN_DIAL: GaugeSweep = { start: 225, extent: 270 }
+export const OPEN_DIAL: ComplicationSweep = { start: 225, extent: 270 }
 
 // ---- Reading a value against a scale ----
 
@@ -145,7 +145,7 @@ export const fractionFor = (
  *
  * One unit of the box, which with a round cap paints exactly one dot of the stroke's diameter:
  * the smallest mark the gauge can make, and the reading a 1% battery deserves. The cap is not
- * an assumption here, it is `.cw-gauge-arc` in `gauge.ts`, and the two have to move together.
+ * an assumption here, it is `.cw-gauge-arc` in `complication.ts`, and the two have to move together.
  *
  * Deliberately not the stroke width, which is the obvious answer and is wrong by twice over: a
  * round cap adds half a stroke beyond each end of the dash, so a dash of one stroke is drawn
@@ -162,8 +162,8 @@ export const fractionFor = (
 const MIN_ARC = 1
 
 /** How long the track is, in the gauge's own units: the whole path at a full turn. */
-export const trackLength = (sweep: GaugeSweep): number =>
-  (Math.min(360, Math.max(0, sweep.extent)) / 360) * GAUGE_CIRCUMFERENCE
+export const trackLength = (sweep: ComplicationSweep): number =>
+  (Math.min(360, Math.max(0, sweep.extent)) / 360) * COMPLICATION_CIRCUMFERENCE
 
 /**
  * The dash the track is drawn with, or `null` for a track that has no ends.
@@ -175,7 +175,7 @@ export const trackLength = (sweep: GaugeSweep): number =>
  * no dash at all before this module existed, so the absent attribute is also what makes the
  * move from there to here provably nothing to look at.
  */
-export const trackDash = (sweep: GaugeSweep): number | null =>
+export const trackDash = (sweep: ComplicationSweep): number | null =>
   sweep.extent >= 360 ? null : trackLength(sweep)
 
 /**
@@ -186,9 +186,9 @@ export const trackDash = (sweep: GaugeSweep): number | null =>
  * the card that tells them apart, in the reading it puts in the middle: `0%` in the first case
  * and a dash in the second, and where there is no reading, in the dimmed glyph.
  */
-export const arcFor = (fraction: number | null, sweep: GaugeSweep): number => {
+export const arcFor = (fraction: number | null, sweep: ComplicationSweep): number => {
   // `!(fraction > 0)` rather than `<= 0`, so a NaN handed straight to this exported helper
-  // falls into the same branch as a null instead of through it: `renderGauge` only ever passes
+  // falls into the same branch as a null instead of through it: `renderComplication` only ever passes
   // what `fractionFor` returned, but nothing stops a card from calling this itself.
   if (fraction === null || !(fraction > 0)) return 0
   const length = trackLength(sweep)
@@ -209,7 +209,7 @@ export const arcFor = (fraction: number | null, sweep: GaugeSweep): number => {
  * consistent because both circles are dashed in the same units, but a dash end and the
  * trigonometric point of `pointAt` disagree by about 0.4 degrees at the far end of a sweep.
  */
-export const dashArray = (ink: number): string => `${ink} ${GAUGE_CIRCUMFERENCE}`
+export const dashArray = (ink: number): string => `${ink} ${COMPLICATION_CIRCUMFERENCE}`
 
 /**
  * How far the dash pattern has to be turned to start where the sweep does.
@@ -217,17 +217,17 @@ export const dashArray = (ink: number): string => `${ink} ${GAUGE_CIRCUMFERENCE}
  * An SVG circle starts at three o'clock, so every sweep owes the arithmetic a quarter turn
  * before its own start is added.
  */
-export const rotationFor = (sweep: GaugeSweep): number => sweep.start - 90
+export const rotationFor = (sweep: ComplicationSweep): number => sweep.start - 90
 
 /** The point on the stroke's centreline at a fraction of the way along the sweep. */
-export const pointAt = (fraction: number, sweep: GaugeSweep): GaugePoint => {
+export const pointAt = (fraction: number, sweep: ComplicationSweep): GaugePoint => {
   // Clamped, and a NaN clamps to the start rather than through the arithmetic: see `arcFor`.
   const along = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0
   const degrees = sweep.start + along * sweep.extent
   const radians = (degrees * Math.PI) / 180
   return {
-    x: GAUGE_CENTER + GAUGE_RADIUS * Math.sin(radians),
-    y: GAUGE_CENTER - GAUGE_RADIUS * Math.cos(radians),
+    x: COMPLICATION_CENTER + COMPLICATION_RADIUS * Math.sin(radians),
+    y: COMPLICATION_CENTER - COMPLICATION_RADIUS * Math.cos(radians),
   }
 }
 
@@ -250,7 +250,7 @@ export const pointAt = (fraction: number, sweep: GaugeSweep): GaugePoint => {
  * badge already makes, and it fails in the same way: a gauge drawn on something other than the
  * card's surface shows a disc of the wrong colour. `--cw-gauge-knockout` is the way out.
  */
-export const MARK_DOT = GAUGE_STROKE / 2
+export const MARK_DOT = COMPLICATION_STROKE / 2
 export const MARK_KNOCKOUT = MARK_DOT * 1.4
 
 // ---- The two end readings ----
@@ -293,9 +293,11 @@ const END_INSET = 8
  * readings labelling a track that was never drawn.
  *
  * The `min` anchor is the **left** edge of the low reading and the `max` anchor is the **right**
- * edge of the high one; `gauge.ts` is what turns that into `left` and `right`.
+ * edge of the high one; `complication.ts` is what turns that into `left` and `right`.
  */
-export const endPointsFor = (sweep: GaugeSweep): { min: GaugePoint; max: GaugePoint } | null => {
+export const endPointsFor = (
+  sweep: ComplicationSweep,
+): { min: GaugePoint; max: GaugePoint } | null => {
   const notch = 360 - sweep.extent
   if (notch <= 0 || sweep.extent <= 0) return null
 
@@ -303,8 +305,8 @@ export const endPointsFor = (sweep: GaugeSweep): { min: GaugePoint; max: GaugePo
   const at = (degrees: number): GaugePoint => {
     const radians = (degrees * Math.PI) / 180
     return {
-      x: GAUGE_CENTER + GAUGE_RADIUS * Math.sin(radians),
-      y: GAUGE_CENTER - GAUGE_RADIUS * Math.cos(radians),
+      x: COMPLICATION_CENTER + COMPLICATION_RADIUS * Math.sin(radians),
+      y: COMPLICATION_CENTER - COMPLICATION_RADIUS * Math.cos(radians),
     }
   }
 

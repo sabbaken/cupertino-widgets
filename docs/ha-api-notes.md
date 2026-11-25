@@ -1499,3 +1499,22 @@ can suggest controls immediately on a fresh installation.
 Core's `config/entity_registry/list_for_display` omits entries with `disabled_by`
 set. The frontend exposes the remaining display entries on `hass.entities`, including
 `hidden`, `entity_category` and `area_id`. An entity's area overrides its device's area.
+
+## Complication sources
+
+In Home Assistant Core 2026.7.4, `weather/subscribe_forecast` takes `entity_id` and
+`forecast_type: daily`. The daily feature bit is 1. Events contain `type` and
+`forecast`, where the list can be null. Core sends an initial update after confirming
+the subscription. The daily entries have an ISO `datetime` and temperatures converted
+to the weather entity's display unit. The card reads `temperature` and `templow` from
+these entries, and `temperature` and `temperature_unit` from the current entity. The
+forecast's day is evaluated in `hass.config.time_zone`. [WebSocket implementation][complication-ws]
+and [weather entity implementation][complication-weather].
+
+The Sun integration exposes the next rising and setting times as UTC timestamps. The
+card accepts `next_rising` and `next_setting` from `sun.sun`, or the state of a timestamp
+sensor, and applies the viewer's time and time-zone preferences. [Sun integration][complication-sun].
+
+[complication-ws]: https://github.com/home-assistant/core/blob/2026.7.4/homeassistant/components/weather/websocket_api.py
+[complication-weather]: https://github.com/home-assistant/core/blob/2026.7.4/homeassistant/components/weather/__init__.py
+[complication-sun]: https://www.home-assistant.io/integrations/sun/#sensors

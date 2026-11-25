@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   FULL_TURN,
-  GAUGE_BOX,
-  GAUGE_CENTER,
-  GAUGE_CIRCUMFERENCE,
-  GAUGE_RADIUS,
-  GAUGE_STROKE,
+  COMPLICATION_BOX,
+  COMPLICATION_CENTER,
+  COMPLICATION_CIRCUMFERENCE,
+  COMPLICATION_RADIUS,
+  COMPLICATION_STROKE,
   OPEN_DIAL,
   arcFor,
   endPointsFor,
@@ -16,24 +16,25 @@ import {
   trackDash,
   trackLength,
   type GaugePoint,
-  type GaugeSweep,
+  type ComplicationSweep,
 } from './geometry'
 
 /** A battery level, read the way the battery card reads one. */
 const level = (percent: number | null): number | null => fractionFor(percent, 0, 100)
 
 /** The arc as a percentage of the track it is drawn over, which is what a reader sees. */
-const drawn = (fraction: number | null, sweep: GaugeSweep = FULL_TURN): number =>
+const drawn = (fraction: number | null, sweep: ComplicationSweep = FULL_TURN): number =>
   Math.round((arcFor(fraction, sweep) / trackLength(sweep)) * 1000) / 10
 
 /** A point read back as a clock angle: degrees clockwise from twelve. */
 const clockAngleOf = (point: GaugePoint): number => {
-  const degrees = (Math.atan2(point.x - GAUGE_CENTER, GAUGE_CENTER - point.y) * 180) / Math.PI
+  const degrees =
+    (Math.atan2(point.x - COMPLICATION_CENTER, COMPLICATION_CENTER - point.y) * 180) / Math.PI
   return (degrees + 360) % 360
 }
 
 const distanceFromCenter = (point: GaugePoint): number =>
-  Math.hypot(point.x - GAUGE_CENTER, point.y - GAUGE_CENTER)
+  Math.hypot(point.x - COMPLICATION_CENTER, point.y - COMPLICATION_CENTER)
 
 describe('a value against its scale', () => {
   it('is the share of the way from one end to the other', () => {
@@ -75,8 +76,8 @@ describe('a value against its scale', () => {
 
 describe('the track', () => {
   it('is the whole circle at a full turn and three quarters of it on the dial', () => {
-    expect(trackLength(FULL_TURN)).toBeCloseTo(GAUGE_CIRCUMFERENCE, 6)
-    expect(trackLength(OPEN_DIAL)).toBeCloseTo(GAUGE_CIRCUMFERENCE * 0.75, 6)
+    expect(trackLength(FULL_TURN)).toBeCloseTo(COMPLICATION_CIRCUMFERENCE, 6)
+    expect(trackLength(OPEN_DIAL)).toBeCloseTo(COMPLICATION_CIRCUMFERENCE * 0.75, 6)
   })
 
   /**
@@ -107,9 +108,9 @@ describe('the arc', () => {
   })
 
   it('never runs past the track it is drawn over', () => {
-    expect(arcFor(1, FULL_TURN)).toBeCloseTo(GAUGE_CIRCUMFERENCE, 6)
-    expect(arcFor(1, OPEN_DIAL)).toBeCloseTo(GAUGE_CIRCUMFERENCE * 0.75, 6)
-    expect(arcFor(4, OPEN_DIAL)).toBeCloseTo(GAUGE_CIRCUMFERENCE * 0.75, 6)
+    expect(arcFor(1, FULL_TURN)).toBeCloseTo(COMPLICATION_CIRCUMFERENCE, 6)
+    expect(arcFor(1, OPEN_DIAL)).toBeCloseTo(COMPLICATION_CIRCUMFERENCE * 0.75, 6)
+    expect(arcFor(4, OPEN_DIAL)).toBeCloseTo(COMPLICATION_CIRCUMFERENCE * 0.75, 6)
   })
 
   /**
@@ -133,7 +134,7 @@ describe('the arc', () => {
    */
   it('leaves a visible mark at the bottom of the range without overstating it', () => {
     expect(arcFor(level(1), FULL_TURN)).toBeGreaterThan(0)
-    expect(arcFor(level(1), FULL_TURN)).toBeLessThan(GAUGE_STROKE)
+    expect(arcFor(level(1), FULL_TURN)).toBeLessThan(COMPLICATION_STROKE)
     expect(arcFor(level(0.2), FULL_TURN)).toBe(1)
     expect(arcFor(0.0001, OPEN_DIAL)).toBe(1)
   })
@@ -176,11 +177,12 @@ describe('a point on the dial', () => {
       for (let step = 0; step <= 100; step += 1) {
         const point = pointAt(step / 100, sweep)
         checked += 1
-        if (Math.abs(distanceFromCenter(point) - GAUGE_RADIUS) > 1e-9) {
+        if (Math.abs(distanceFromCenter(point) - COMPLICATION_RADIUS) > 1e-9) {
           broken.push(`${sweep.extent}deg at ${step}: off the centreline`)
         }
         const inside = [point.x, point.y].every(
-          axis => axis >= GAUGE_STROKE / 2 && axis <= GAUGE_BOX - GAUGE_STROKE / 2,
+          axis =>
+            axis >= COMPLICATION_STROKE / 2 && axis <= COMPLICATION_BOX - COMPLICATION_STROKE / 2,
         )
         if (!inside) broken.push(`${sweep.extent}deg at ${step}: ink outside the box`)
       }
@@ -207,12 +209,12 @@ describe('the two end readings', () => {
     if (!ends) throw new Error('the dial has a notch and therefore two anchors')
 
     expect(ends.min.y).toBeCloseTo(ends.max.y, 6)
-    expect(GAUGE_BOX - ends.max.x).toBeCloseTo(ends.min.x, 6)
+    expect(COMPLICATION_BOX - ends.max.x).toBeCloseTo(ends.min.x, 6)
     expect(clockAngleOf(ends.min)).toBeCloseTo(217, 6)
     expect(clockAngleOf(ends.max)).toBeCloseTo(143, 6)
     // On the stroke's centreline, which is where the reference hangs them, and below the middle.
-    expect(distanceFromCenter(ends.min)).toBeCloseTo(GAUGE_RADIUS, 6)
-    expect(ends.min.y).toBeGreaterThan(GAUGE_CENTER)
+    expect(distanceFromCenter(ends.min)).toBeCloseTo(COMPLICATION_RADIUS, 6)
+    expect(ends.min.y).toBeGreaterThan(COMPLICATION_CENTER)
   })
 
   /**

@@ -116,21 +116,6 @@ const deviceSchema = (
   { name: 'name', selector: { text: { placeholder: inheritedName(hass, config.entity) } } },
 ]
 
-/**
- * The add picker: the same filter, minus everything the list already holds.
- *
- * The exclusion is the point. Without it the picker offers a sensor that is already a ring,
- * picking it is refused (two rings for one sensor is not something anybody means), and the
- * only thing the user sees is a picker that filled itself in and did nothing. A candidate
- * that cannot be added should not be offered.
- */
-const addSchema = (taken: readonly string[]): readonly HaFormSchema[] => [
-  {
-    name: 'entity',
-    selector: { entity: { filter: BATTERY_FILTER, exclude_entities: [...taken] } },
-  },
-]
-
 const LABELS: Record<string, string> = {
   entity: 'Battery sensor',
   icon: 'Icon',
@@ -264,13 +249,35 @@ class CupertinoBatteryDevices extends LitElement {
    */
   private readonly _open = new Set<string>()
 
+  protected readonly filter: { domain?: string | string[]; device_class?: string } = BATTERY_FILTER
+  protected readonly allowDuplicates: boolean = false
+  protected readonly addLabel: string = ADD_LABEL
+  protected readonly addHelper: string = ADD_HELPER
+  protected readonly emptyLabel: string = 'No devices yet. The card will say so too.'
+
+  protected schema = deviceSchema
+  protected normaliseRows = deviceRows
+  protected summary: (
+    hass: HomeAssistant | undefined,
+    config: BatteryDeviceConfig,
+  ) => { name: string; icon?: string; secondary?: string } = readDevice
+  protected labels = LABELS
+  protected helpers = HELPERS
+
+  private _key(index: number): string {
+    const entity = this.devices[index]?.entity ?? ''
+    if (!this.allowDuplicates) return entity
+    const ordinal = this.devices.slice(0, index).filter(row => row.entity === entity).length
+    return `${entity}:${ordinal}`
+  }
+
   private readonly _computeLabel = (schema: HaFormSchema): string =>
-    LABELS[schema.name] ?? schema.name
+    this.labels[schema.name] ?? schema.name
 
   private readonly _computeHelper = (schema: HaFormSchema): string | undefined =>
-    HELPERS[schema.name]
+    this.helpers[schema.name]
 
-  private readonly _computeAddLabel = (): string => ADD_LABEL
+  private readonly _computeAddLabel = (): string => this.addLabel
 
   /**
    * Ask for the picker, once, and re-render as the button when it arrives.
@@ -292,7 +299,7 @@ class CupertinoBatteryDevices extends LitElement {
   private _emit(rows: readonly unknown[]): void {
     this.dispatchEvent(
       new CustomEvent<DevicesChangedDetail>('devices-changed', {
-        detail: { devices: deviceRows(rows) },
+        detail: { devices: this.normaliseRows(rows) },
         bubbles: true,
         composed: true,
       }),
@@ -317,12 +324,13 @@ class CupertinoBatteryDevices extends LitElement {
 
     if (typeof value.entity !== 'string' || value.entity === '') {
       next.splice(index, 1)
-      if (previous) this._open.delete(previous.entity)
+      if (previous) this._open.delete(this._key(index))
     } else {
       next[index] = value as unknown as BatteryDeviceConfig
       // The panel stays open across the rename that a changed entity amounts to.
-      if (previous && previous.entity !== value.entity && this._open.delete(previous.entity)) {
-        this._open.add(value.entity)
+      if (previous && previous.entity !== value.entity && this._open.delete(this._key(index))) {
+        const ordinal = next.slice(0, index).filter(row => row.entity === value.entity).length
+        this._open.add(this.allowDuplicates ? `${value.entity}:${ordinal}` : value.entity)
       }
     }
 
@@ -337,7 +345,7 @@ class CupertinoBatteryDevices extends LitElement {
     event.stopPropagation()
 
     const going = this.devices[index]
-    if (going) this._open.delete(going.entity)
+    if (going) this._open.delete(this._key(index))
     const next = [...this.devices]
     next.splice(index, 1)
     this._emit(next)
@@ -379,9 +387,10 @@ class CupertinoBatteryDevices extends LitElement {
    */
   private _addDevice(entity: string | undefined): void {
     if (entity === undefined || entity === '') return
-    if (this.devices.some(device => device.entity === entity)) return
+    const copies = this.devices.filter(device => device.entity === entity).length
+    if (!this.allowDuplicates && copies > 0) return
 
-    this._open.add(entity)
+    this._open.add(this.allowDuplicates ? `${entity}:${copies}` : entity)
     this._emit([...this.devices, { entity }])
   }
 
@@ -397,7 +406,8 @@ class CupertinoBatteryDevices extends LitElement {
   ): TemplateResult {
     // Name and icon as the card is drawing them right now, overrides included, so a row is
     // recognisable in the editor by the same glyph it has on the widget.
-    const device = readDevice(this.hass, config)
+    const device = this.summary(this.hass, config)
+    const key = this._key(index)
 
     return html`
       <div class="device">
@@ -407,10 +417,10 @@ class CupertinoBatteryDevices extends LitElement {
         <ha-expansion-panel
           outlined
           .header=${device.name}
-          .secondary=${config.entity}
-          .expanded=${this._open.has(config.entity)}
+          .secondary=${device.secondary ?? config.entity}
+          .expanded=${this._open.has(key)}
           @expanded-changed=${(event: CustomEvent<{ expanded: boolean }>) =>
-            this._toggled(event, config.entity)}
+            this._toggled(event, key)}
         >
           <ha-icon slot="leading-icon" .icon=${device.icon}></ha-icon>
           <ha-icon-button
@@ -424,7 +434,7 @@ class CupertinoBatteryDevices extends LitElement {
             class="fields"
             .hass=${this.hass}
             .data=${config}
-            .schema=${deviceSchema(this.hass, config, taken)}
+            .schema=${this.schema(this.hass, config, taken)}
             .computeLabel=${this._computeLabel}
             .computeHelper=${this._computeHelper}
             @value-changed=${(event: CustomEvent<{ value: Record<string, unknown> }>) =>
@@ -438,16 +448,11 @@ class CupertinoBatteryDevices extends LitElement {
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass) return nothing
 
-    // Every sensor the list has already taken: what the add picker must not offer, and what
-    // a row's own picker must not offer except for its own.
-    const taken = this.devices.map(device => device.entity)
+    // Battery excludes configured sensors; Gauge can read different aspects of one entity.
+    const taken = this.allowDuplicates ? [] : this.devices.map(device => device.entity)
 
     return html`
-      ${
-        this.devices.length === 0
-          ? html`<p class="empty">No devices yet. The card will say so too.</p>`
-          : nothing
-      }
+      ${this.devices.length === 0 ? html`<p class="empty">${this.emptyLabel}</p>` : nothing}
       <!-- The wrapper is required rather than tidy: ha-sortable makes its FIRST child
            sortable, so without one the rows would not be the things being dragged. The rows
            are keyed by entity id so that a drag moves the row rather than rewriting every
@@ -458,7 +463,7 @@ class CupertinoBatteryDevices extends LitElement {
         <div class="devices">
           ${repeat(
             this.devices,
-            device => device.entity,
+            (_, index) => this._key(index),
             (device, index) => this._renderDevice(device, index, taken),
           )}
         </div>
@@ -475,9 +480,9 @@ class CupertinoBatteryDevices extends LitElement {
                 <ha-entity-picker
                   add-button
                   .hass=${this.hass}
-                  .addButtonLabel=${ADD_LABEL}
-                  .includeDomains=${[BATTERY_FILTER.domain]}
-                  .includeDeviceClasses=${[BATTERY_FILTER.device_class]}
+                  .addButtonLabel=${this.addLabel}
+                  .includeDomains=${[this.filter.domain].flat().filter(Boolean)}
+                  .includeDeviceClasses=${this.filter.device_class ? [this.filter.device_class] : undefined}
                   .excludeEntities=${taken}
                   @value-changed=${this._addPicked}
                 ></ha-entity-picker>
@@ -486,13 +491,13 @@ class CupertinoBatteryDevices extends LitElement {
                 <ha-form
                   .hass=${this.hass}
                   .data=${{}}
-                  .schema=${addSchema(taken)}
+                  .schema=${[{ name: 'entity', selector: { entity: { filter: this.filter, exclude_entities: taken } } }]}
                   .computeLabel=${this._computeAddLabel}
                   @value-changed=${this._addFromField}
                 ></ha-form>
               `
         }
-        <p class="hint">${ADD_HELPER}</p>
+        ${this.addHelper ? html`<p class="hint">${this.addHelper}</p>` : nothing}
       </div>
     `
   }

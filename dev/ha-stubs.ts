@@ -25,6 +25,14 @@ import {
   mdiLaptop,
   mdiTablet,
   mdiWatch,
+  mdiWaterPercent,
+  mdiWeatherSunsetUp,
+  mdiWeatherSunsetDown,
+  mdiClockOutline,
+  mdiGauge,
+  mdiThermometer,
+  mdiMoleculeCo2,
+  mdiWeatherSunny,
 } from '@mdi/js'
 
 import type {
@@ -231,6 +239,14 @@ const ICONS: Record<string, string> = {
   'mdi:laptop': mdiLaptop,
   'mdi:tablet': mdiTablet,
   'mdi:watch': mdiWatch,
+  'mdi:water-percent': mdiWaterPercent,
+  'mdi:weather-sunset-up': mdiWeatherSunsetUp,
+  'mdi:weather-sunset-down': mdiWeatherSunsetDown,
+  'mdi:clock-outline': mdiClockOutline,
+  'mdi:gauge': mdiGauge,
+  'mdi:thermometer': mdiThermometer,
+  'mdi:molecule-co2': mdiMoleculeCo2,
+  'mdi:weather-sunny': mdiWeatherSunny,
 }
 
 /**

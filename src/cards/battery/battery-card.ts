@@ -3,8 +3,8 @@ import { css, html, nothing, type CSSResultGroup, type TemplateResult } from 'li
 import { CupertinoCard, type CupertinoCardConfig } from '../../core/base-card'
 import { registerCard } from '../../core/register'
 import type { LovelaceCardEditor } from '../../core/types/ha'
-import { FULL_TURN } from '../../ui/gauge/geometry'
-import { gaugeStyles, renderGauge } from '../../ui/gauge/gauge'
+import { CHARGING_BADGE, chargingStyles } from '../../ui/complication/charging'
+import { complicationStyles, renderComplication } from '../../ui/complication/complication'
 import { BATTERY_EDITOR_TAG } from './battery-card-editor'
 import { gridFor, type BatteryView } from './layout'
 import { readDevices, watchedIds, type BatteryDevice, type BatteryDeviceConfig } from './model'
@@ -42,58 +42,11 @@ const NO_DEVICES = 'No Devices'
 const LEVEL_DASH = '—'
 
 /**
- * The bolt, and the one glyph in this library that does not come from `@mdi/js`.
- *
- * It is Material's own `Bolt`: the path Material Symbols ships and `@mui/icons-material`
- * re-exports, on the same 24-unit grid as MDI, taken verbatim from that package's
- * `Bolt.js`. Apache-2.0, which is compatible with this repository's licence, and one path
- * string rather than a dependency: `@mui/icons-material` is a React package of some ten
- * megabytes and this is the whole of what we want from it.
- *
- * MDI's own bolts were the obvious first answer and are not this shape. `mdiFlash` and
- * `mdiLightningBolt` are both harder-edged, with a flat top and a straight leading edge;
- * Material's tapers and kinks, which is what makes it read as a charging mark next to a
- * round gauge rather than as a hazard sign. Everything else about how it is drawn (inlined
- * rather than handed to `<ha-icon>`, so nothing waits on the icon registry) is the same
- * arrangement as the calendar's all-day badge.
- */
-const BOLT_PATH =
-  'M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66s.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 ' +
-  '7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21'
-
-/**
- * How that bolt is centred in its badge.
- *
- * It inks x 7.1–17.5 and y 3–21, so its centre is (12.3, 12) rather than the grid's (12, 12):
- * the glyph leans right, and centring it on the nominal middle leaves the badge visibly
- * lopsided. Its furthest corner is 10.4 units from that centre, and 0.95 brings it to 9.9
- * inside a disc of radius 12: a bolt that fills the badge without its tips touching the rim.
- */
-const BOLT = 'translate(12 12) scale(0.95) translate(-12.3 -12)'
-
-/**
- * The charging badge: a bolt on a disc of the card's own surface.
- *
- * The disc is what makes it work at all. The badge sits at twelve o'clock, which is where
- * the arc starts, so a green bolt laid straight on it is invisible at exactly the moment it
- * matters most: a device left on the charger overnight, at 100%, whose arc runs all the way
- * round. Punching the surface through first costs a notch out of the arc and buys a badge
- * that reads at every level. It is drawn over the arc rather than replacing part of it, so
- * the length of the arc still means what it means.
- */
-const CHARGING_BADGE = html`
-  <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="12" fill="var(--cw-surface)" />
-    <path d=${BOLT_PATH} transform=${BOLT} fill="var(--cw-green)" />
-  </svg>
-`
-
-/**
  * The battery widget: a ring per device, and a percentage under each when they fit on one
  * row.
  *
- * The rules are in `layout.ts` (how many rings, how big, captioned or not), `ui/gauge/` (the
- * arc, which this card is the first and so far the only consumer of) and `model.ts`
+ * The rules are in `layout.ts` (how many rings, how big, captioned or not), `ui/complication/` (the
+ * arc, which this card is the first consumer of) and `model.ts`
  * (what a Home Assistant state means). This class measures the box, asks those three, and
  * draws the answer. See `docs/battery-widget-rules.md`.
  */
@@ -101,9 +54,10 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
   static override styles: CSSResultGroup = [
     CupertinoCard.styles,
     // The gauge draws the ring, and its stylesheet lands in this card's shadow root rather
-    // than behind a shadow boundary of its own; `ui/gauge/gauge.ts` has the argument, and the
+    // than behind a shadow boundary of its own; `ui/complication/complication.ts` has the argument, and the
     // `.cell.unknown` rule at the bottom of this sheet is what it buys.
-    gaugeStyles,
+    complicationStyles,
+    chargingStyles,
     css`
       /* Every px in this stylesheet is a design unit multiplied by --cw-scale, and
          layout.ts holds the same numbers unscaled: it divides the measured box by the
@@ -165,20 +119,6 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
            It is declared here rather than in the gauge because it is this card's decision:
            the gauge draws in one colour at every value and has no opinion on which. */
         --cw-gauge-mark: var(--cw-green);
-      }
-
-      .bolt {
-        --cw-bolt-size: calc(var(--cw-gauge-size) * 0.34);
-        position: absolute;
-        left: 50%;
-        /* Centred on the stroke's centreline, which the gauge publishes rather than this
-           card working it out from a stroke it no longer owns. Straddling it that way leaves
-           about an eighth of the ring's width standing above the box, which the card's inset
-           absorbs. */
-        top: var(--cw-gauge-centerline);
-        width: var(--cw-bolt-size);
-        height: var(--cw-bolt-size);
-        transform: translate(-50%, -50%);
       }
 
       /* 22px semibold, and it does not shrink for a three-digit reading, which is why
@@ -268,12 +208,12 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
    * defaults to, an arc rather than a dot, and a level that is already a percentage, so the
    * scale is the one the gauge assumes and is not passed. Everything else that used to be
    * here (the rotation, the dash, lit's `svg` tag and the reason for it) moved into
-   * `ui/gauge/gauge.ts` with the drawing itself.
+   * `ui/complication/complication.ts` with the drawing itself.
    */
   private _renderRing(device: BatteryDevice): TemplateResult {
-    return renderGauge({
+    return renderComplication({
       value: device.level,
-      sweep: FULL_TURN,
+      form: 'ring',
       mark: 'arc',
       glyph: device.icon,
       overlay: device.charging ? CHARGING_BADGE : nothing,

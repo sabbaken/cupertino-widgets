@@ -25,7 +25,7 @@ taken from the box you drag them into rather than from a size setting.
 **[Card rules](docs/calendar-widget-rules.md)** ·
 **[Ring rules](docs/battery-widget-rules.md)** ·
 **[List rules](docs/reminders-widget-rules.md)** ·
-**[Gauge rules](docs/gauge-rules.md)**
+**[Complication rules](docs/complication-rules.md)**
 
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sabbaken)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sabbaken)
@@ -455,6 +455,49 @@ show_name: true
 show_area: true
 ```
 
+### Cupertino Complications
+
+Add **Cupertino Complications** in the card picker to display several readings in one card. Set
+the footprint in the **Layout** tab and use **Scale** to adjust the contents. Each row
+can follow its entity's profile or use a ring, dial or disc of its own.
+
+```yaml
+type: custom:cupertino-complications-card
+entities:
+  - entity: sensor.earbuds_battery
+    charging_entity: binary_sensor.earbuds_charging
+    show_percentage: true
+  - sensor.study_humidity
+  - weather.home
+  - entity: sun.sun
+    sun_event: sunrise
+    color_mode: monochrome
+```
+
+The editor also accepts a custom caption, icon, icon position, range and dial indicator
+for individual readings. Weather dials use today's forecast low and high when both
+are available and distinct. With no forecast range they use the configured temperature
+scale. Existing `custom:cupertino-gauge-card` configurations continue to load.
+Temperature defaults to −20–40 °C (−4–104 °F), and CO₂ defaults to 400–2500 ppm.
+Select **AQI (US EPA)** to use the US 0–500 scale and its colour categories. Auto-detected
+AQI reads the value without classifying it. [US EPA AQI categories](https://www.airnow.gov/aqi/aqi-basics/).
+
+A `weather.*` row defaults to temperature. Select **Weather reading** in the editor or
+set `weather_metric` to `humidity`, `uv_index` or `wind_bearing` to show another reading.
+The wind disc shows a compass abbreviation and the speed in km/h for convertible units.
+Availability follows the configured weather provider. Add the same weather entity
+more than once to show multiple readings together. Weather temperatures and forecast
+ends display whole numbers. Celsius sensors display one decimal and a degree symbol.
+
+**Appearance** offers **Gradient**, **Solid colour** and **Monochrome**. The dot
+indicates the reading in all three modes on dials with a palette.
+
+The temperature and humidity palettes are visual approximations. The AQI gradient
+uses colours sampled from a watch dial over the US 0–500 range. The UV gradient
+follows the published colour order. The CO₂ palette uses the card's own ppm range.
+[US EPA AQI](https://www.airnow.gov/aqi/aqi-basics/) and
+[WHO UV index colours](https://www.who.int/docs/default-source/inaugural-who-partners-forum/the-uv-index-sun-protection-table-notes-on-supplied-clipart.pdf?download=true).
+
 ## How big it is
 
 **There is no size option.** Resize a card the normal way (the **Layout** tab in the dashboard
@@ -503,13 +546,14 @@ belongs to every card rather than to this one.
 
 ## The widgets
 
-| Widget                          | Status                      |
-| ------------------------------- | --------------------------- |
-| Calendar                        | events, live                |
-| Battery levels                  | live                        |
-| Reminders, in the calendar card | to-do items with a due date |
-| A to-do list of its own         | live, and tickable          |
-| Cupertino Controls              | entity control tiles        |
+| Widget                          | Status                        |
+| ------------------------------- | ----------------------------- |
+| Calendar                        | events, live                  |
+| Battery levels                  | live                          |
+| Reminders, in the calendar card | to-do items with a due date   |
+| A to-do list of its own         | live, and tickable            |
+| Cupertino Controls              | entity control tiles          |
+| Cupertino Complications         | sensor readings and forecasts |
 
 ## Development
 

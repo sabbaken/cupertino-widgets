@@ -114,12 +114,29 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
       }
 
       .square button {
+        --cw-tile-radius: var(--cw-radius);
         align-self: start;
         height: var(--cw-controls-tile-height);
+        /* Keep space for a 24px icon and two 16px lines in denser grids. */
+        padding-block: clamp(
+          0px,
+          calc((var(--cw-controls-tile-height) - 56px * var(--cw-scale)) / 2),
+          var(--cw-inset)
+        );
+        padding-inline: min(var(--cw-inset), calc(var(--cw-controls-tile-height) / 5));
         gap: 0;
         flex-direction: column;
         align-items: stretch;
         justify-content: space-between;
+      }
+
+      .square.icon-only button {
+        align-items: center;
+        justify-content: center;
+      }
+
+      .square.icon-only .icon {
+        align-self: center;
       }
 
       button:focus-visible {
@@ -147,6 +164,13 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
       ha-state-icon,
       ha-icon {
         --mdc-icon-size: calc(24px * var(--cw-scale));
+      }
+
+      .square.icon-only :is(ha-state-icon, ha-icon) {
+        --mdc-icon-size: min(
+          calc(36px * var(--cw-scale)),
+          calc(var(--cw-controls-tile-height) / 2)
+        );
       }
 
       .labels {
@@ -334,6 +358,8 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
     this._recommended = controlsRecommendations(hass, config, manual, grid.capacity)
     const ids = [...manual, ...this._recommended]
     const scroll = manual.length > grid.capacity
+    const iconOnly =
+      grid.shape === 'square' && config.show_name === false && config.show_area === false
     const lengths = styleMap({
       '--cw-controls-inset': `calc(${CONTROLS_INSET}px * var(--cw-scale))`,
       '--cw-controls-gap': `calc(${CONTROLS_GAP}px * var(--cw-scale))`,
@@ -347,7 +373,9 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
         ${
           ids.length
             ? html`
-                <div class=${`grid ${grid.shape}${scroll ? ' scroll' : ''}`}>
+                <div
+                  class=${`grid ${grid.shape}${scroll ? ' scroll' : ''}${iconOnly ? ' icon-only' : ''}`}
+                >
                   ${repeat(
                     ids,
                     id => id,
@@ -403,11 +431,15 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
                                 : html`<ha-icon icon="mdi:help-circle-outline"></ha-icon>`
                             }
                           </span>
-                          <span class="labels" aria-hidden="true">
-                            ${area && config.show_area !== false ? html`<span class="line area">${area}</span>` : nothing}
-                            ${config.show_name !== false ? html`<span class="line name">${name}</span>` : nothing}
-                            ${grid.shape === 'rectangle' ? html`<span class="line status">${status}</span>` : nothing}
-                          </span>
+                          ${
+                            iconOnly
+                              ? nothing
+                              : html`<span class="labels" aria-hidden="true">
+                                  ${area && config.show_area !== false ? html`<span class="line area">${area}</span>` : nothing}
+                                  ${config.show_name !== false ? html`<span class="line name">${name}</span>` : nothing}
+                                  ${grid.shape === 'rectangle' ? html`<span class="line status">${status}</span>` : nothing}
+                                </span>`
+                          }
                         </button>
                       `
                     },
