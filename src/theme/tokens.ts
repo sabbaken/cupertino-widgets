@@ -57,6 +57,7 @@ export const tokens = css`
     --cw-controls-light-fallback: #d49b00;
     --cw-controls-fan-fallback: #008ba3;
     --cw-controls-inactive-icon: var(--state-inactive-color, #757575);
+    --cw-controls-surface: color-mix(in srgb, var(--cw-surface) 92%, #555568);
     /* Controls keeps the active tile white in both themes. These labels sit on that surface. */
     --cw-controls-active-surface: #fff;
     --cw-controls-active-label: #202124;
@@ -126,6 +127,7 @@ export const tokens = css`
   }
 
   :host([dark]) {
+    --cw-controls-surface: var(--cw-surface);
     --cw-label: var(--primary-text-color, #fff);
     --cw-label-secondary: var(--secondary-text-color, rgba(235, 235, 245, 0.6));
     --cw-separator: var(--divider-color, rgba(84, 84, 88, 0.65));
