@@ -166,6 +166,7 @@ export interface ReminderList {
    * about to be wrong.
    */
   count: number
+  allComplete: boolean
 }
 
 /**
@@ -196,5 +197,9 @@ export const listFor = (
     if (status !== COMPLETED) count += 1
   }
 
-  return { rows, count }
+  // A hidden pending item still prevents a claim that the entire list is complete.
+  const allComplete =
+    rows.length === 0 && items.length > 0 && items.every(item => item.status === COMPLETED)
+
+  return { rows, count, allComplete }
 }

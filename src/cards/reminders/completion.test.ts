@@ -57,7 +57,30 @@ describe('the block list', () => {
   })
 
   it('returns an empty list with zero count when every title is hidden', () => {
-    expect(listFor([MILK, VET], NO_PINS, TAP, 'milk, vet')).toEqual({ rows: [], count: 0 })
+    expect(listFor([MILK, VET], NO_PINS, TAP, 'milk, vet')).toEqual({
+      rows: [],
+      count: 0,
+      allComplete: false,
+    })
+  })
+})
+
+describe('the completion message', () => {
+  it('distinguishes a completed list from an empty list', () => {
+    expect(listFor([alreadyTicked('Buy milk')], NO_PINS, TAP).allComplete).toBe(true)
+    expect(listFor([], NO_PINS, TAP).allComplete).toBe(false)
+  })
+
+  it('waits for the last completed row to finish its undo window', () => {
+    const pins = tapped(NO_PINS, MILK, TAP)
+    const items = [alreadyTicked('Buy milk')]
+    expect(listFor(items, pins, TAP).allComplete).toBe(false)
+    expect(listFor(items, pins, TAP + LINGER_MS).allComplete).toBe(true)
+  })
+
+  it('accounts for pending reminders hidden by the block list', () => {
+    const items = [alreadyTicked('Buy milk'), VET]
+    expect(listFor(items, NO_PINS, TAP, 'vet').allComplete).toBe(false)
   })
 })
 

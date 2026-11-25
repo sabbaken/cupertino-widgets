@@ -355,8 +355,10 @@ Navigation is a history push and a `location-changed` event on the router's wind
 
 **A card whose list is not in `hass.states` draws `No List`**, the same as one with nothing
 configured. There is nothing to name and nothing to count, and naming a deleted list over an
-empty widget would be worse than admitting there is none. A list that is there and has nothing
-outstanding draws its heading and `No Reminders`, which is the reference's own wording.
+empty widget would be worse than admitting there is none. An empty list draws its heading
+and `No Reminders`. A non-empty list whose items are all completed draws
+`All reminders complete` once any visible rows held for undo have gone. Pending items hidden
+by the block list still count when deciding whether the entire list is complete.
 
 ## 10. Still open
 

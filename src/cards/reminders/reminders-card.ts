@@ -60,13 +60,9 @@ export interface RemindersCardConfig extends CupertinoCardConfig {
   blocklist?: string
 }
 
-/**
- * Not localised, like the rest of the library's own words: Home Assistant has no string for
- * either. The widget being copied says exactly the second one, and the first is the shape
- * the battery card's `No Devices` already gave a card with nothing to draw.
- */
 const NO_LIST = 'No List'
 const NO_REMINDERS = 'No Reminders'
+const ALL_COMPLETE = 'All reminders complete'
 
 /**
  * The tick inside a completed row's circle.
@@ -636,18 +632,12 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
     `
   }
 
-  /**
-   * The rows, or the one line that stands in for them.
-   *
-   * `empty` is asked about the whole list rather than about the rows handed over, and the
-   * two are different in the corner where the budget came back with nothing: a box squashed
-   * below one row still has items in it, and answering that with "No Reminders" would be the
-   * card telling the user something false about their list because it could not draw it.
-   * That box gets an empty column and is clipped by `ha-card`, which is the same failure the
-   * battery card takes for the same reason.
-   */
-  private _renderList(rows: readonly ReminderRow[], live: boolean, empty: boolean): TemplateResult {
-    if (empty) return html`<div class="none">${NO_REMINDERS}</div>`
+  private _renderList(
+    rows: readonly ReminderRow[],
+    live: boolean,
+    emptyMessage: string | undefined,
+  ): TemplateResult {
+    if (emptyMessage) return html`<div class="none">${emptyMessage}</div>`
 
     return html` <div class="list">${rows.map(row => this._renderRow(row, live))}</div> `
   }
@@ -671,6 +661,11 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
 
     const geometry = geometryFor({ width: this.boxWidth, height: this.boxHeight }, this.scaleFactor)
     const list = listFor(this._items ?? [], this._pins, Date.now(), this._config.blocklist)
+    // Use the full row list so a tight layout cannot trigger an empty message.
+    let emptyMessage: string | undefined
+    if (this._items !== undefined && list.rows.length === 0) {
+      emptyMessage = list.allComplete ? ALL_COMPLETE : NO_REMINDERS
+    }
     const name = listName(this.hass, entityId)
     const badge = this._renderBadge(name, listIcon(this.hass, entityId))
     const identity = this._renderIdentity(name, this._items === undefined ? undefined : list.count)
@@ -690,10 +685,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
             ${this._renderList(
               list.rows.slice(0, geometry.rows),
               listCanComplete(this.hass, entityId),
-              // Only once there is a snapshot to be empty. Before the first push the card
-              // does not know the list is empty, and saying so for one round trip is a
-              // statement it would have to take back.
-              this._items !== undefined && list.rows.length === 0,
+              emptyMessage,
             )}
           </div>
         </div>
