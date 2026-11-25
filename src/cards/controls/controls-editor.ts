@@ -16,6 +16,8 @@ export const CONTROLS_EDITOR_TAG = 'cupertino-widgets-controls-editor'
 
 const fields: HaFormSchema[] = [
   { name: 'entities', selector: { entity: { multiple: true, reorder: true } } },
+  { name: 'recommend_devices', selector: { boolean: {} } },
+  { name: 'recommendation_areas', selector: { area: { multiple: true } } },
   {
     name: 'tile_columns',
     selector: { number: { min: 1, max: CONTROLS_MAX_COLUMNS, step: 1, mode: 'box' } },
@@ -53,6 +55,8 @@ const advanced: HaFormSchema = {
 
 const labels: Record<string, string> = {
   entities: 'Entities',
+  recommend_devices: 'Recommend devices',
+  recommendation_areas: 'Recommendation areas',
   format: 'Tile format',
   tile_columns: 'Columns',
   tile_rows: 'Rows',
@@ -62,7 +66,9 @@ const labels: Record<string, string> = {
 
 class CupertinoControlsEditor extends CupertinoCardEditor<ControlsConfig> {
   protected override fields(): readonly HaFormSchema[] {
-    return fields
+    return this._config?.recommend_devices === false
+      ? fields.filter(field => field.name !== 'recommendation_areas')
+      : fields
   }
 
   protected override trailingFields(): readonly HaFormSchema[] {
@@ -74,14 +80,23 @@ class CupertinoControlsEditor extends CupertinoCardEditor<ControlsConfig> {
   }
 
   protected override defaults(): Partial<ControlsConfig> {
-    return { format: 'auto', show_name: true, show_area: true }
+    return { format: 'auto', show_name: true, show_area: true, recommend_devices: true }
   }
 
   protected override label(schema: HaFormSchema): string {
+    if (this.hass?.language.startsWith('ru')) {
+      if (schema.name === 'recommend_devices') return 'Рекомендовать устройства'
+      if (schema.name === 'recommendation_areas') return 'Комнаты для рекомендаций'
+    }
     return labels[schema.name] ?? super.label(schema)
   }
 
   protected override helper(schema: HaFormSchema): string | undefined {
+    if (schema.name === 'recommendation_areas') {
+      return this.hass?.language.startsWith('ru')
+        ? 'Пустое поле означает весь дом.'
+        : 'Leave blank for the entire home.'
+    }
     if (schema.name === 'tile_columns' || schema.name === 'tile_rows') {
       return 'Leave blank to fit automatically.'
     }
@@ -103,7 +118,7 @@ class CupertinoControlsEditor extends CupertinoCardEditor<ControlsConfig> {
     )
     const hint = `Estimated visible tiles at the configured Layout and Scale: ${capacity}.`
     return ids.length > capacity
-      ? `${hint} ${ids.length - capacity} additional tiles are hidden.`
+      ? `${hint} ${ids.length - capacity} more manual tiles are available by scrolling.`
       : hint
   }
 }

@@ -11,6 +11,14 @@ const halfWidth = columnsToPx(6, 500)
 const fourRows = rowsToPx(4)
 
 describe('tile capacity', () => {
+  it('starts with rectangles for recommendations alone', () => {
+    expect(controlsGrid(246, 248, 1, 0, 'auto')).toMatchObject({
+      shape: 'rectangle',
+      columns: 2,
+      capacity: 6,
+    })
+  })
+
   it('fits three columns in a six by four dashboard cell', () => {
     expect(controlsGrid(halfWidth, fourRows, 1, 8, 'auto')).toMatchObject({
       shape: 'square',

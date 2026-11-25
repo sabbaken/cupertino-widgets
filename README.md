@@ -425,13 +425,19 @@ answers a tap with a red toast is simply a control that does not work.
 
 ### Cupertino Controls
 
-Add **Cupertino Controls** from the card picker and use **Add entity** to build the list.
-Drag the handles to set the tile order. Use the **Layout**
-tab to size the card and **Scale** to resize the tiles within it. **Auto** uses rectangles
-for roomier tiles and switches to squares when they can keep a narrow grid readable or
-fit more entities. A full-width card uses three columns in either format by default.
-Tiles beyond the visible rows are hidden. Set **Columns** or **Rows** to control
-the grid inside the card. Leave either field blank to size that axis automatically.
+Add **Cupertino Controls** from the card picker to see recommendations from the whole home.
+Use **Add entity** to pin controls at the front. Drag their handles to set their order.
+**Recommend devices** fills the remaining visible slots with available
+lights, fans, switches (including plugs), climate controls and covers.
+
+Leave **Recommendation areas** empty for the whole home, or choose the areas to suggest
+controls from. The area filter applies to recommendations.
+
+Use **Layout** to size the card and **Scale** to resize its tiles. **Auto** chooses
+a format for the pinned controls based on how many fit and the gaps between square tiles.
+A card showing only recommendations starts with rectangles when they fit. Additional pinned
+controls can be reached by scrolling. **Columns** and **Rows** optionally set the density
+inside the card.
 
 Tap to toggle an entity that supports it. For other entities, a tap opens **More info**.
 Press and hold or use **Shift+Enter** to open **More info** directly.
@@ -442,6 +448,8 @@ entities:
   - light.kitchen
   - fan.bedroom
   - switch.desk
+recommendation_areas:
+  - kitchen
 format: auto # auto, rectangle, or square
 show_name: true
 show_area: true

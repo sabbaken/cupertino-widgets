@@ -14,12 +14,13 @@ import { controlsStateColor, tokens } from '../../theme/tokens'
 import { CONTROLS_GAP, CONTROLS_INSET, controlsGrid } from './layout'
 import {
   controlsActive,
-  controlsArea,
+  controlsAreaId,
   controlsEntities,
   controlsState,
   type ControlsConfig,
 } from './model'
 import { CONTROLS_EDITOR_TAG } from './controls-editor'
+import { controlsRecommendations } from './recommendations'
 
 export const CONTROLS_CARD_TAG = 'cupertino-widgets-controls'
 
@@ -38,6 +39,10 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
         grid-template-columns: repeat(var(--cw-controls-columns), minmax(0, 1fr));
         align-content: start;
         overflow: clip;
+      }
+
+      .grid.scroll {
+        overflow-y: auto;
       }
 
       .grid.square {
@@ -205,8 +210,21 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
     { pointer: number; x: number; y: number; timer: ReturnType<typeof setTimeout> } | undefined
   private _suppressClick = false
 
+  private _recommended: string[] = []
+
+  private _grid(config: ControlsConfig, count: number) {
+    return controlsGrid(
+      this.boxWidth,
+      this.boxHeight,
+      this.scaleFactor,
+      count,
+      config.format ?? 'auto',
+      config,
+    )
+  }
+
   protected override watchedEntities(): string[] {
-    return controlsEntities(this._config?.entities)
+    return [...controlsEntities(this._config?.entities), ...this._recommended]
   }
 
   protected override shouldUpdate(changed: PropertyValues): boolean {
@@ -217,7 +235,24 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
       previous?.entities !== this.hass?.entities ||
       previous?.devices !== this.hass?.devices ||
       previous?.areas !== this.hass?.areas ||
-      previous?.services !== this.hass?.services
+      previous?.services !== this.hass?.services ||
+      (previous?.states !== this.hass?.states && this._recommendationsChanged())
+    )
+  }
+
+  private _recommendationsChanged(): boolean {
+    const config = this._config
+    const hass = this.hass
+    if (!config || !hass || config.recommend_devices === false) return false
+    const manual = controlsEntities(config.entities)
+    const next = controlsRecommendations(
+      hass,
+      config,
+      manual,
+      this._grid(config, manual.length).capacity,
+    )
+    return (
+      next.length !== this._recommended.length || next.some((id, i) => id !== this._recommended[i])
     )
   }
 
@@ -294,15 +329,11 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
     const hass = this.hass
     const config = this._config
     if (!hass || !config) return nothing
-    const ids = this.watchedEntities()
-    const grid = controlsGrid(
-      this.boxWidth,
-      this.boxHeight,
-      this.scaleFactor,
-      ids.length,
-      config.format ?? 'auto',
-      config,
-    )
+    const manual = controlsEntities(config.entities)
+    const grid = this._grid(config, manual.length)
+    this._recommended = controlsRecommendations(hass, config, manual, grid.capacity)
+    const ids = [...manual, ...this._recommended]
+    const scroll = manual.length > grid.capacity
     const lengths = styleMap({
       '--cw-controls-inset': `calc(${CONTROLS_INSET}px * var(--cw-scale))`,
       '--cw-controls-gap': `calc(${CONTROLS_GAP}px * var(--cw-scale))`,
@@ -316,9 +347,9 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
         ${
           ids.length
             ? html`
-                <div class=${`grid ${grid.shape}`}>
+                <div class=${`grid ${grid.shape}${scroll ? ' scroll' : ''}`}>
                   ${repeat(
-                    ids.slice(0, grid.capacity),
+                    ids,
                     id => id,
                     id => {
                       const entity = hass.states[id]
@@ -331,7 +362,8 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
                         hass.entities?.[id]?.name ||
                         entity?.attributes.friendly_name ||
                         id
-                      const area = controlsArea(hass, id)
+                      const areaId = controlsAreaId(hass, id)
+                      const area = areaId ? hass.areas?.[areaId]?.name : undefined
                       const status = controlsState(hass, entity)
                       const label = [config.show_area !== false ? area : undefined, name, status]
                         .filter(Boolean)
@@ -382,7 +414,13 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
                   )}
                 </div>
               `
-            : html`<p class="empty">Choose entities in the card editor.</p>`
+            : html`<p class="empty">
+                ${
+                  config.recommend_devices === false
+                    ? 'Choose entities in the card editor.'
+                    : 'No devices to recommend.'
+                }
+              </p>`
         }
       </ha-card>
     `

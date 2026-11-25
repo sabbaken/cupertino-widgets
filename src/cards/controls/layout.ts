@@ -58,6 +58,7 @@ export const controlsGrid = (
   // The narrower square uses more of the tile for the name. On wide cards
   // compare the visible counts before switching to a different format.
   const compact =
+    count > 0 &&
     !wide &&
     !requestedColumns &&
     rectangleColumns < 3 &&

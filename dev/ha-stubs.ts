@@ -908,6 +908,20 @@ class HaFormStub extends HTMLElement {
       row.append(this._renderBoolean(node.name, value))
     } else if ('ui_color' in node.selector) {
       row.append(this._renderColor(node.name, value))
+    } else if ('area' in node.selector) {
+      const select = document.createElement('select')
+      select.id = node.name
+      select.multiple = node.selector.area.multiple === true
+      for (const [area, { name }] of Object.entries(this._hass?.areas ?? {})) {
+        select.add(new Option(name, area, false, Array.isArray(value) && value.includes(area)))
+      }
+      select.addEventListener('change', () =>
+        this._emit(
+          node.name,
+          Array.from(select.selectedOptions, option => option.value),
+        ),
+      )
+      row.append(select)
     } else if (node.selector.entity.multiple) {
       row.append(this._renderEntities(node, node.selector.entity))
     } else {

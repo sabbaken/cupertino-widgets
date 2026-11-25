@@ -27,6 +27,7 @@ export interface HassEntityRegistryDisplayEntry {
   entity_id: string
   name?: string
   hidden?: boolean
+  disabled_by?: string | null
   entity_category?: string
   translation_key?: string
   area_id?: string | null
@@ -282,10 +283,11 @@ export interface UiColorSelector {
  *
  * It dispatches on `Object.keys(selector)[0]`, so exactly one key is meaningful;
  * hence a union rather than a bag of optional keys. The shipped build knows 57 of
- * these; these are the seven our editors ask for.
+ * these; these are the selectors our editors ask for.
  */
 export type Selector =
   | EntitySelector
+  | { area: { multiple?: boolean } }
   | SelectSelector
   | NumberSelector
   | IconSelector

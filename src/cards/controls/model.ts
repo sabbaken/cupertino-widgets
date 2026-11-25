@@ -8,6 +8,8 @@ import type { ControlsDensity, ControlsFormat } from './layout'
 
 export interface ControlsConfig extends CupertinoCardConfig, ControlsDensity {
   entities?: string[] | string
+  recommend_devices?: boolean
+  recommendation_areas?: string[] | string
   format?: ControlsFormat
   show_name?: boolean
   show_area?: boolean
@@ -21,11 +23,13 @@ export const controlsEntities = (entities: ControlsConfig['entities']): string[]
   ),
 ]
 
-export const controlsArea = (hass: HomeAssistant, id: string): string | undefined => {
+export const controlsAreaId = (
+  hass: Pick<HomeAssistant, 'entities' | 'devices'>,
+  id: string,
+): string | undefined => {
   const entity = hass.entities?.[id]
   const device = entity?.device_id ? hass.devices?.[entity.device_id] : undefined
-  const area = entity?.area_id || device?.area_id
-  return area ? hass.areas?.[area]?.name : undefined
+  return entity?.area_id || device?.area_id || undefined
 }
 
 export const controlsActive = (entity: HassEntity): boolean => {

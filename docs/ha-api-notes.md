@@ -1485,3 +1485,17 @@ adjustment before the theme fallback. The bridge lives in `src/theme/tokens.ts`.
 The card checks `hass.services[domain].toggle` before sending `{ entity_id }` as the
 service target. It sends a composed `hass-more-info` event with `detail.entityId` for the
 standard dialog. Both paths were exercised against the dev container's demo integration.
+
+## Controls recommendations
+
+In HA 2026.7.4, the frontend's `common-controls-section-strategy` (chunk `4604`)
+calls `usage_prediction/common_control` after checking that the integration is loaded.
+Core registers the command in `components/usage_prediction/__init__.py` and calculates
+predictions from recorder events for the connected user. Home Assistant documents
+[Usage Prediction](https://www.home-assistant.io/integrations/usage_prediction/) as an
+internal integration. The card instead uses the frontend's states and registries, so it
+can suggest controls immediately on a fresh installation.
+
+Core's `config/entity_registry/list_for_display` omits entries with `disabled_by`
+set. The frontend exposes the remaining display entries on `hass.entities`, including
+`hidden`, `entity_category` and `area_id`. An entity's area overrides its device's area.

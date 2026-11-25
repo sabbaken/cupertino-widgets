@@ -34,6 +34,7 @@ const isBlank = (value: unknown): boolean =>
  */
 const isMultiple = (selector: Selector): boolean => {
   if ('entity' in selector) return selector.entity.multiple === true
+  if ('area' in selector) return selector.area.multiple === true
   if ('select' in selector) return selector.select.multiple === true
   return false
 }
