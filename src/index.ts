@@ -8,6 +8,7 @@ import { printBanner } from './core/register'
 
 import './cards/battery/battery-card'
 import './cards/calendar/calendar-card'
+import './cards/clock/clock-card'
 import './cards/controls/controls-card'
 import './cards/complications/complications-card'
 import './cards/reminders/reminders-card'
@@ -23,3 +24,4 @@ export {
 } from './cards/complications/complications-card'
 export { REMINDERS_CARD_TAG } from './cards/reminders/reminders-card'
 export type { WidgetLayout } from './core/size'
+export { CLOCK_CARD_TAG } from './cards/clock/clock-card'

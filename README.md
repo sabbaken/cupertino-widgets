@@ -457,6 +457,26 @@ show_name: true
 show_area: true
 ```
 
+### Cupertino Clock
+
+Add **Cupertino Clock** in the card picker. The clock follows your Home Assistant profile's
+time format and time zone and has a transparent background by default. Set
+`show_background: true` to draw the card background or `show_date: false` to hide the date.
+Choose a weather entity to display the current condition as an icon, with the temperature
+when available. Add up to four complications below the time using the same settings as
+**Cupertino Complications**. On the clock, their default appearance is monochrome.
+
+```yaml
+type: custom:cupertino-clock-card
+weather_entity: weather.home
+entities:
+  - sensor.phone_battery
+  - entity: weather.home
+    weather_metric: humidity
+  - entity: sun.sun
+    sun_event: sunset
+```
+
 ### Cupertino Complications
 
 Add **Cupertino Complications** in the card picker to display several readings in one card. Set
@@ -548,14 +568,15 @@ belongs to every card rather than to this one.
 
 ## The widgets
 
-| Widget                          | Status                        |
-| ------------------------------- | ----------------------------- |
-| Calendar                        | events, live                  |
-| Battery levels                  | live                          |
-| Reminders, in the calendar card | to-do items with a due date   |
-| A to-do list of its own         | live, and tickable            |
-| Cupertino Controls              | entity control tiles          |
-| Cupertino Complications         | sensor readings and forecasts |
+| Widget                          | Status                          |
+| ------------------------------- | ------------------------------- |
+| Calendar                        | events, live                    |
+| Battery levels                  | live                            |
+| Reminders, in the calendar card | to-do items with a due date     |
+| A to-do list of its own         | live, and tickable              |
+| Cupertino Controls              | entity control tiles            |
+| Cupertino Complications         | sensor readings and forecasts   |
+| Cupertino Clock                 | time, weather and complications |
 
 ## Development
 

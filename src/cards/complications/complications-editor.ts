@@ -1,10 +1,11 @@
 /** The Complications editor uses the battery editor's sortable panels. */
 import { html, nothing, type TemplateResult } from 'lit'
+import { property } from 'lit/decorators.js'
 import { CupertinoCardEditor } from '../../core/card-editor'
 import { defineElement } from '../../core/register'
 import type { HaFormSchema, HomeAssistant } from '../../core/types/ha'
 import { CupertinoBatteryDevices, type DevicesChangedDetail } from '../battery/device-list-editor'
-import type { ComplicationsCardConfig } from './complications-card'
+import type { ComplicationsCardConfig } from './complication-card-base'
 import {
   COMPLICATION_APPEARANCES,
   complicationRows,
@@ -27,7 +28,11 @@ const select = (name: string, options: Record<string, string>): HaFormSchema => 
 })
 const shapeNames = { ring: 'Ring', dial: 'Dial', disc: 'Disc' }
 
+type ComplicationAppearance = NonNullable<ComplicationRow['color_mode']>
+
 class CupertinoComplicationRows extends CupertinoBatteryDevices {
+  @property({ attribute: false }) public defaultAppearance: ComplicationAppearance = 'color'
+
   protected override readonly filter = {
     domain: ['sensor', 'number', 'input_number', 'weather', 'sun'],
   }
@@ -63,7 +68,7 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
             value !== null &&
             !(value === 'auto' && ['profile', 'shape', 'icon_position', 'mark'].includes(key)) &&
             !(key === 'weather_metric' && value === 'temperature') &&
-            !(key === 'color_mode' && value === 'color') &&
+            !(key === 'color_mode' && value === this.defaultAppearance) &&
             !(key === 'sun_event' && value === 'sunset'),
         ),
       ) as unknown as ComplicationRow
@@ -150,7 +155,12 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
   }
 }
 
-class CupertinoComplicationsEditor extends CupertinoCardEditor<ComplicationsCardConfig> {
+export class CupertinoComplicationsEditor<
+  C extends ComplicationsCardConfig = ComplicationsCardConfig,
+> extends CupertinoCardEditor<C> {
+  protected readonly complicationLimit: number = Infinity
+  protected readonly complicationAppearance: ComplicationAppearance = 'color'
+
   protected override fields(): readonly HaFormSchema[] {
     return []
   }
@@ -160,16 +170,20 @@ class CupertinoComplicationsEditor extends CupertinoCardEditor<ComplicationsCard
     return html`
       <cupertino-complication-rows
         .hass=${this.hass}
-        .devices=${complicationRows(this._config.entities).map(row => ({
-          profile: 'auto',
-          ...(weatherMetric(row) ? { weather_metric: 'temperature' } : {}),
-          shape: 'auto',
-          color_mode: 'color',
-          icon_position: 'auto',
-          mark: 'auto',
-          sun_event: 'sunset',
-          ...row,
-        }))}
+        .maxDevices=${this.complicationLimit}
+        .defaultAppearance=${this.complicationAppearance}
+        .devices=${complicationRows(this._config.entities)
+          .slice(0, this.complicationLimit)
+          .map(row => ({
+            profile: 'auto',
+            ...(weatherMetric(row) ? { weather_metric: 'temperature' } : {}),
+            shape: 'auto',
+            color_mode: this.complicationAppearance,
+            icon_position: 'auto',
+            mark: 'auto',
+            sun_event: 'sunset',
+            ...row,
+          }))}
         @devices-changed=${this._rowsChanged}
       ></cupertino-complication-rows>
     `
@@ -179,7 +193,8 @@ class CupertinoComplicationsEditor extends CupertinoCardEditor<ComplicationsCard
     event.stopPropagation()
     if (!this._config) return
     const next = { ...this._config }
-    if (event.detail.devices.length) next.entities = event.detail.devices
+    if (event.detail.devices.length)
+      next.entities = event.detail.devices.slice(0, this.complicationLimit)
     else delete next.entities
     this.emitConfig(next)
   }

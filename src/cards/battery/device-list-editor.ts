@@ -203,6 +203,10 @@ class CupertinoBatteryDevices extends LitElement {
       padding: 8px 0 16px;
     }
 
+    .add[hidden] {
+      display: none;
+    }
+
     .add {
       margin-top: 16px;
     }
@@ -250,6 +254,8 @@ class CupertinoBatteryDevices extends LitElement {
   private readonly _open = new Set<string>()
 
   protected readonly filter: { domain?: string | string[]; device_class?: string } = BATTERY_FILTER
+  @property({ attribute: false }) public maxDevices = Infinity
+
   protected readonly allowDuplicates: boolean = false
   protected readonly addLabel: string = ADD_LABEL
   protected readonly addHelper: string = ADD_HELPER
@@ -386,7 +392,7 @@ class CupertinoBatteryDevices extends LitElement {
    * whose icon somebody is most likely about to set.
    */
   private _addDevice(entity: string | undefined): void {
-    if (entity === undefined || entity === '') return
+    if (entity === undefined || entity === '' || this.devices.length >= this.maxDevices) return
     const copies = this.devices.filter(device => device.entity === entity).length
     if (!this.allowDuplicates && copies > 0) return
 
@@ -468,7 +474,7 @@ class CupertinoBatteryDevices extends LitElement {
           )}
         </div>
       </ha-sortable>
-      <div class="add">
+      <div class="add" ?hidden=${this.devices.length >= this.maxDevices}>
         ${
           this._pickerReady
             ? // Home Assistant's own add control, and the reason for the wait above: with

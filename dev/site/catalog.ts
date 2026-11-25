@@ -18,6 +18,7 @@ import {
   mdiCalendarMonth,
   mdiFormatListChecks,
   mdiGauge,
+  mdiClockOutline,
   mdiToggleSwitch,
 } from '@mdi/js'
 
@@ -25,12 +26,13 @@ import { DEMO_SCENARIOS, DEFAULT_DEMO_SCENARIO } from '../../src/cards/calendar/
 import {
   BATTERY_CARD_TAG,
   CALENDAR_CARD_TAG,
+  CLOCK_CARD_TAG,
   CONTROLS_CARD_TAG,
   COMPLICATIONS_CARD_TAG,
   REMINDERS_CARD_TAG,
 } from '../../src/index'
 import { COMPLICATION_APPEARANCES } from '../../src/cards/complications/model'
-import { COMPLICATION_SETS } from '../complications-entities'
+import { COMPLICATION_SETS, COMPLICATION_WEATHER } from '../complications-entities'
 import { CONTROL_STATES } from '../control-entities'
 import { DEFAULT_DEVICE_SET, DEVICE_SETS, deviceSet } from '../battery-devices'
 import { DEFAULT_REMINDER_LIST, REMINDER_LISTS, reminderList } from '../reminders-lists'
@@ -413,7 +415,71 @@ const complications: Widget = {
   },
 }
 
-export const WIDGETS: readonly Widget[] = [calendar, battery, reminders, controls, complications]
+const clock: Widget = {
+  id: 'clock',
+  name: 'Clock',
+  tagline: 'See the time, weather and up to four readings.',
+  icon: mdiClockOutline,
+  tag: CLOCK_CARD_TAG,
+  props: [
+    {
+      kind: 'select',
+      name: 'weather',
+      label: 'Weather',
+      group: 'card',
+      initial: 'show',
+      options: [
+        { value: 'show', label: 'With weather' },
+        { value: 'hide', label: 'Without weather' },
+      ],
+    },
+    {
+      kind: 'select',
+      name: 'date',
+      label: 'Date',
+      group: 'card',
+      initial: 'show',
+      options: [
+        { value: 'show', label: 'Show date' },
+        { value: 'hide', label: 'Hide date' },
+      ],
+    },
+    {
+      kind: 'select',
+      name: 'readings',
+      label: 'Complications',
+      group: 'card',
+      initial: 'show',
+      options: [
+        { value: 'show', label: 'Show complications' },
+        { value: 'hide', label: 'Hide complications' },
+      ],
+    },
+  ],
+  toConfig(args) {
+    return {
+      ...(readString(args, 'weather', 'show') === 'show'
+        ? { weather_entity: COMPLICATION_WEATHER }
+        : {}),
+      ...(readString(args, 'date', 'show') === 'hide' ? { show_date: false } : {}),
+      ...(readString(args, 'readings', 'show') === 'show'
+        ? { entities: COMPLICATION_SETS.mixed.slice(0, 4) }
+        : {}),
+    }
+  },
+  toFixture() {
+    return {}
+  },
+}
+
+export const WIDGETS: readonly Widget[] = [
+  calendar,
+  battery,
+  reminders,
+  controls,
+  complications,
+  clock,
+]
 
 export const widgetById = (id: string): Widget | undefined =>
   WIDGETS.find(w => w.id === (id === 'gauge' ? complications.id : id))
