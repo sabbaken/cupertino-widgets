@@ -26,6 +26,7 @@
  */
 
 import type { FrontendLocaleData, HassEntity, HomeAssistant } from '../src/core/types/ha'
+import { CONTROL_STATES } from './control-entities'
 import { BATTERY_STATES } from './battery-devices'
 import { REMINDER_ITEMS, REMINDER_STATES, outstanding, type WireTodoItem } from './reminders-lists'
 
@@ -216,6 +217,7 @@ const STATES: Record<string, HassEntity> = {
   // `reminders-lists.ts` and `battery-devices.ts`, where the config that points at each of
   // them lives beside it.
   ...Object.fromEntries(REMINDER_STATES.map(one => [one.entity_id, one])),
+  ...Object.fromEntries(CONTROL_STATES.map(one => [one.entity_id, one])),
   ...Object.fromEntries(BATTERY_STATES.map(one => [one.entity_id, one])),
 }
 
@@ -412,6 +414,9 @@ const updateTodoItem = (entityId: string, data: Record<string, unknown> | undefi
 const TRANSLATIONS: Record<string, string> = {
   'ui.panel.lovelace.editor.card.calendar.calendar_entities': 'Calendar entities',
   'panel.todo': 'To-do lists',
+  'state.default.on': 'On',
+  'state.default.off': 'Off',
+  'state.default.unavailable': 'Unavailable',
 }
 
 export interface MockHassOptions {
@@ -423,8 +428,16 @@ export interface MockHassOptions {
 export function createMockHass({ dark, timeFormat }: MockHassOptions): HomeAssistant {
   return {
     states: { ...STATES },
+    areas: { living_room: { name: 'Гостиная и обеденная зона' } },
     entities: Object.fromEntries(
-      Object.keys(STATES).map(id => [id, { entity_id: id, hidden: false }]),
+      Object.keys(STATES).map(id => [
+        id,
+        {
+          entity_id: id,
+          hidden: false,
+          area_id: CONTROL_STATES.some(entity => entity.entity_id === id) ? 'living_room' : null,
+        },
+      ]),
     ),
     /*
      * No panels, and the empty object is the honest answer rather than a gap: the showcase is

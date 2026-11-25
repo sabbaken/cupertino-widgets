@@ -1467,3 +1467,21 @@ this._element.layout = this.layout // "grid" | "panel" | ...
 clobbered. Hence `cwLayout` / the `cw-layout` attribute in `core/base-card.ts`.
 
 `preview` is the opposite case: Home Assistant sets it and we are meant to read it.
+
+## Cupertino Controls
+
+The Controls card renders the native `ha-state-icon` with `hass` and `stateObj`, and uses
+`hass.formatEntityState` for translated state text. Tile names can come from
+`hass.entities`. An entity's `area_id` takes precedence over the area of its device in
+`hass.devices`, and `hass.areas` gives the display name.
+
+The light, fan and switch colours follow the native fallbacks. A device-class state
+variable comes first, followed by domain state, domain activity and global activity.
+Unavailable has its own variable. An active RGB lamp follows the native tile's contrast
+adjustment before the theme fallback. The bridge lives in `src/theme/tokens.ts`.
+[Native tile colour selection](https://github.com/home-assistant/frontend/blob/dev/src/panels/lovelace/cards/hui-tile-card.ts)
+[Home Assistant's state colour resolver](https://github.com/home-assistant/frontend/blob/dev/src/common/entity/state_color.ts)
+
+The card checks `hass.services[domain].toggle` before sending `{ entity_id }` as the
+service target. It sends a composed `hass-more-info` event with `detail.entityId` for the
+standard dialog. Both paths were exercised against the dev container's demo integration.

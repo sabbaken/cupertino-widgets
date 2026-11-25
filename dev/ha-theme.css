@@ -28,6 +28,12 @@
   --primary-color: #03a9f4;
 }
 
+.theme-light,
+.theme-dark {
+  --state-light-active-color: #ffc107;
+  --state-fan-active-color: #00bcd4;
+}
+
 /* Home Assistant's named colour tokens, copied out of `color.globals.ts`'s `html {}`
    block in the 2026.7.4 bundle. Not decoration, and not for the page's own furniture:
    a colour set on a calendar in Home Assistant's entity settings is stored as one of

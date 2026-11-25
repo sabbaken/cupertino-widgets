@@ -54,6 +54,13 @@ export const tokens = css`
       var(--cw-font);
 
     /* ---- Colour ------------------------------------------------------------ */
+    --cw-controls-light-fallback: #d49b00;
+    --cw-controls-fan-fallback: #008ba3;
+    --cw-controls-inactive-icon: var(--state-inactive-color, #757575);
+    /* Controls keeps the active tile white in both themes. These labels sit on that surface. */
+    --cw-controls-active-surface: #fff;
+    --cw-controls-active-label: #202124;
+    --cw-controls-active-secondary: #53565b;
     --cw-label: var(--primary-text-color, #000);
     --cw-label-secondary: var(--secondary-text-color, rgba(60, 60, 67, 0.6));
     --cw-label-tertiary: color-mix(in srgb, var(--cw-label-secondary) 55%, transparent);
@@ -90,6 +97,7 @@ export const tokens = css`
        the outline the dashboard sees, and a card whose corners disagreed with the ones
        beside it would read as a mistake rather than as a setting. */
     --cw-radius: var(--ha-card-border-radius, 22px);
+    --cw-card-border-width: var(--ha-card-border-width, 1px);
     /* Scaled, unlike the one above: this radius is inside the card, and the all-day
        badge is drawn concentric with it; see the .row.allday rule. */
     --cw-radius-inner: calc(12px * var(--cw-scale));
@@ -137,3 +145,64 @@ export const tokens = css`
     --cw-surface: var(--ha-card-background, var(--card-background-color, #1c1c1e));
   }
 `
+
+/**
+ * Native tiles keep the hue of an RGB lamp and adjust its saturation or peak
+ * channel for contrast. The RGB channel distances give the HSV adjustment
+ * directly, so the card only needs to convert the result to CSS.
+ */
+const lightTileColor = (rgb: unknown): string | undefined => {
+  if (
+    !Array.isArray(rgb) ||
+    rgb.length !== 3 ||
+    !rgb.every(
+      channel =>
+        typeof channel === 'number' && Number.isFinite(channel) && channel >= 0 && channel <= 255,
+    )
+  ) {
+    return undefined
+  }
+  const peak = Math.max(...rgb)
+  const spread = peak - Math.min(...rgb)
+  const saturation = peak ? spread / peak : 0
+  const channels = rgb.map(channel => {
+    if (saturation < 0.1) return peak ? (channel * 225) / peak : 225
+    if (saturation < 0.4) return peak - ((peak - channel) * peak * 0.4) / spread
+    return channel
+  })
+  return `rgb(${channels.map(Math.round).join(', ')})`
+}
+
+/**
+ * Home Assistant themes can colour an individual state before falling back to its
+ * domain and then to the global active or inactive colour.
+ */
+export const controlsStateColor = (
+  domain: string,
+  state: string,
+  active: boolean,
+  deviceClass?: string,
+  rgb?: unknown,
+): string => {
+  if (state === 'unavailable' || state === 'unknown') {
+    return 'var(--state-unavailable-color, var(--cw-label-secondary))'
+  }
+  if (domain === 'light' && active) {
+    const lightColor = lightTileColor(rgb)
+    if (lightColor) return lightColor
+  }
+  const key = (value: string) => value.toLowerCase().replace(/[^a-z0-9_-]+/g, '_')
+  const activity = active ? 'active' : 'inactive'
+  const stateKey = key(state)
+  const domainKey = key(domain)
+  const properties = [
+    ...(deviceClass ? [`--state-${domainKey}-${key(deviceClass)}-${stateKey}-color`] : []),
+    `--state-${domainKey}-${stateKey}-color`,
+    `--state-${domainKey}-${activity}-color`,
+    `--state-${activity}-color`,
+  ]
+  const fallback = active
+    ? `var(--cw-controls-${domainKey}-fallback, var(--cw-accent))`
+    : 'var(--cw-label-secondary)'
+  return properties.reduceRight((value, property) => `var(${property}, ${value})`, fallback)
+}

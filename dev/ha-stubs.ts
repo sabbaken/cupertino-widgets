@@ -17,6 +17,9 @@ import {
   mdiClipboardList,
   mdiDoorbellVideo,
   mdiHeadphones,
+  mdiFan,
+  mdiLightbulb,
+  mdiPowerPlug,
   mdiHelpCircleOutline,
   mdiHome,
   mdiLaptop,
@@ -29,6 +32,7 @@ import type {
   EntitySelector,
   HaFormExpandable,
   HaFormSchema,
+  HassEntity,
   HomeAssistant,
   NumberSelector,
   SelectOption,
@@ -220,6 +224,9 @@ const ICONS: Record<string, string> = {
   'mdi:clipboard-list': mdiClipboardList,
   'mdi:doorbell-video': mdiDoorbellVideo,
   'mdi:headphones': mdiHeadphones,
+  'mdi:fan': mdiFan,
+  'mdi:lightbulb': mdiLightbulb,
+  'mdi:power-plug': mdiPowerPlug,
   'mdi:home': mdiHome,
   'mdi:laptop': mdiLaptop,
   'mdi:tablet': mdiTablet,
@@ -295,6 +302,12 @@ class HaIconStub extends HTMLElement {
     svg.append(shape)
 
     this._root.replaceChildren(style, svg)
+  }
+}
+
+class HaStateIconStub extends HaIconStub {
+  public set stateObj(value: HassEntity) {
+    this.icon = value.attributes.icon ?? 'mdi:help-circle-outline'
   }
 }
 
@@ -850,18 +863,21 @@ class HaFormStub extends HTMLElement {
     if (focused) this._root.getElementById(focused)?.focus()
   }
 
+  private readonly _groups = new WeakMap<HaFormExpandable, HTMLDetailsElement>()
+
   /**
    * A group of rows behind a disclosure triangle, standing in for `ha-form-expandable`.
    *
    * The rows inside read and write the same flat data the ones outside do, which is the
    * whole of what `flatten: true` means and the only part of the real one worth copying:
    * the schema type only allows a flattened group, so there is no nesting to reproduce.
-   * `open` follows `expanded`, so an editor that opens the panel when the config already
-   * has something in it can be seen doing it here.
+   * Reuse the open state when the schema is stable so a value change keeps the disclosure
+   * open. A replacement schema supplies its own initial state.
    */
   private _renderGroup(node: HaFormExpandable): HTMLElement {
     const group = document.createElement('details')
-    group.open = node.expanded === true
+    group.open = this._groups.get(node)?.open ?? node.expanded === true
+    this._groups.set(node, group)
 
     const summary = document.createElement('summary')
     summary.textContent = node.title ?? this._computeLabel?.(node, this._data) ?? node.name
@@ -970,8 +986,8 @@ class HaFormStub extends HTMLElement {
   }
 
   /**
-   * A slider and its reading, which is the shape the real selector settles on too once it
-   * has been given a `min` and a `max`.
+   * A slider with a reading, or a box when the schema asks for one explicitly.
+   * The box can be cleared to let the card choose a value again.
    *
    * The one thing worth copying exactly is the type of the value it reports: `ha-form`
    * hands back a **number**, and an editor that folded a string into the config would put
@@ -982,6 +998,21 @@ class HaFormStub extends HTMLElement {
     value: unknown,
     number: NumberSelector['number'],
   ): HTMLElement {
+    if (number.mode === 'box') {
+      const input = document.createElement('input')
+      input.type = 'number'
+      input.className = 'text'
+      input.id = name
+      input.min = String(number.min ?? '')
+      input.max = String(number.max ?? '')
+      input.step = String(number.step ?? 1)
+      input.value = typeof value === 'number' ? String(value) : ''
+      input.addEventListener('change', () =>
+        this._emit(name, input.value ? input.valueAsNumber : undefined),
+      )
+      return input
+    }
+
     const min = number.min ?? 0
     const max = number.max ?? 100
     const current = typeof value === 'number' ? value : min
@@ -1053,6 +1084,7 @@ class HaFormStub extends HTMLElement {
     list.className = 'options'
 
     const selected = Array.isArray(this._data[node.name]) ? (this._data[node.name] as string[]) : []
+    if (selector.reorder) return this._renderOrderedEntities(node.name, selected)
     const candidates = this._candidates(selector)
 
     for (const entityId of candidates) {
@@ -1088,6 +1120,67 @@ class HaFormStub extends HTMLElement {
       list.append(empty)
     }
 
+    return list
+  }
+
+  private _renderOrderedEntities(name: string, selected: readonly string[]): HTMLElement {
+    const list = document.createElement('div')
+    list.className = 'options'
+    let dragged: string | undefined
+
+    for (const id of selected) {
+      const row = document.createElement('div')
+      row.className = 'option'
+
+      const handle = document.createElement('span')
+      handle.textContent = '⠿'
+      handle.title = 'Drag to reorder'
+      handle.draggable = true
+      handle.style.cursor = 'grab'
+      handle.addEventListener('dragstart', event => {
+        dragged = id
+        event.dataTransfer?.setData('text/plain', id)
+      })
+      handle.addEventListener('dragend', () => {
+        dragged = undefined
+      })
+      row.addEventListener('dragover', event => {
+        if (dragged) event.preventDefault()
+      })
+      row.addEventListener('drop', event => {
+        if (!dragged || dragged === id) return
+        event.preventDefault()
+        const next = selected.filter(entity => entity !== dragged)
+        next.splice(selected.indexOf(id), 0, dragged)
+        dragged = undefined
+        this._emit(name, next)
+      })
+
+      const remove = document.createElement('button')
+      remove.type = 'button'
+      remove.textContent = '×'
+      remove.setAttribute('aria-label', `Remove ${this._name(id)}`)
+      remove.addEventListener('click', () =>
+        this._emit(
+          name,
+          selected.filter(entity => entity !== id),
+        ),
+      )
+      row.append(handle, this._name(id), remove)
+      list.append(row)
+    }
+
+    const picker = document.createElement('ha-entity-picker') as HaEntityPickerStub
+    picker.setAttribute('add-button', '')
+    picker.hass = this._hass
+    picker.addButtonLabel = 'Add entity'
+    picker.excludeEntities = selected
+    picker.addEventListener('value-changed', event => {
+      event.stopPropagation()
+      const id = (event as CustomEvent<{ value?: string }>).detail.value
+      if (id && !selected.includes(id)) this._emit(name, [...selected, id])
+    })
+    list.append(picker)
     return list
   }
 
@@ -1138,6 +1231,7 @@ export function defineHaStubs(): void {
     'ha-card': HaCardStub,
     'ha-form': HaFormStub,
     'ha-icon': HaIconStub,
+    'ha-state-icon': HaStateIconStub,
     'ha-svg-icon': HaSvgIconStub,
     'ha-icon-button': HaIconButtonStub,
     'ha-expansion-panel': HaExpansionPanelStub,

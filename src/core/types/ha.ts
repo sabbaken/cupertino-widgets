@@ -29,6 +29,8 @@ export interface HassEntityRegistryDisplayEntry {
   hidden?: boolean
   entity_category?: string
   translation_key?: string
+  area_id?: string | null
+  device_id?: string | null
 }
 
 /**
@@ -95,6 +97,11 @@ export interface PanelInfo {
 
 export interface HomeAssistant {
   states: Record<string, HassEntity>
+  devices?: Record<string, { area_id?: string | null }>
+  areas?: Record<string, { name: string }>
+  services?: Record<string, Record<string, unknown>>
+  formatEntityState?(entity: HassEntity): string
+  formatEntityName?(entity: HassEntity): string
   entities: Record<string, HassEntityRegistryDisplayEntry>
   /** Every page in the sidebar, keyed by `url_path`. See `PanelInfo`. */
   panels: Record<string, PanelInfo>

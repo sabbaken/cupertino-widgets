@@ -13,10 +13,16 @@
  * applied last precisely because it must never end up in that YAML.
  */
 
-import { mdiBatteryHigh, mdiCalendarMonth, mdiFormatListChecks } from '@mdi/js'
+import { mdiBatteryHigh, mdiCalendarMonth, mdiFormatListChecks, mdiToggleSwitch } from '@mdi/js'
 
 import { DEMO_SCENARIOS, DEFAULT_DEMO_SCENARIO } from '../../src/cards/calendar/demo-data'
-import { BATTERY_CARD_TAG, CALENDAR_CARD_TAG, REMINDERS_CARD_TAG } from '../../src/index'
+import {
+  BATTERY_CARD_TAG,
+  CALENDAR_CARD_TAG,
+  CONTROLS_CARD_TAG,
+  REMINDERS_CARD_TAG,
+} from '../../src/index'
+import { CONTROL_STATES } from '../control-entities'
 import { DEFAULT_DEVICE_SET, DEVICE_SETS, deviceSet } from '../battery-devices'
 import { DEFAULT_REMINDER_LIST, REMINDER_LISTS, reminderList } from '../reminders-lists'
 import {
@@ -315,7 +321,38 @@ const reminders: Widget = {
   },
 }
 
-export const WIDGETS: readonly Widget[] = [calendar, battery, reminders]
+const controls: Widget = {
+  id: 'controls',
+  name: 'Controls',
+  tagline: 'Lights, fans and switches in the order you use them.',
+  icon: mdiToggleSwitch,
+  tag: CONTROLS_CARD_TAG,
+  props: [
+    {
+      kind: 'select',
+      name: 'format',
+      label: 'Tile format',
+      group: 'card',
+      options: [
+        { value: 'auto', label: 'Auto' },
+        { value: 'rectangle', label: 'Rectangles' },
+        { value: 'square', label: 'Squares' },
+      ],
+      initial: 'auto',
+    },
+  ],
+  toConfig(args) {
+    return {
+      entities: CONTROL_STATES.map(entity => entity.entity_id),
+      format: readString(args, 'format', 'auto'),
+    }
+  },
+  toFixture() {
+    return {}
+  },
+}
+
+export const WIDGETS: readonly Widget[] = [calendar, battery, reminders, controls]
 
 export const widgetById = (id: string): Widget | undefined => WIDGETS.find(w => w.id === id)
 

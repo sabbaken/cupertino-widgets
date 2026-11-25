@@ -21,6 +21,7 @@ taken from the box you drag them into rather than from a size setting.
 **[The calendar](#the-calendar)** ·
 **[The batteries](#the-batteries)** ·
 **[The reminders](#the-reminders)** ·
+**[Cupertino Controls](#cupertino-controls)** ·
 **[Card rules](docs/calendar-widget-rules.md)** ·
 **[Ring rules](docs/battery-widget-rules.md)** ·
 **[List rules](docs/reminders-widget-rules.md)** ·
@@ -37,10 +38,10 @@ taken from the box you drag them into rather than from a size setting.
 The demo runs every size live, with sample data and the clock under your control, and hands
 you the config to paste when you like what you see: nothing to install to look.
 
-> **Status: early.** Three cards. The calendar draws your real calendars and to-do lists and
-> lays itself out exactly like the phone's. The battery card draws any battery sensors you
-> point it at. The reminders card draws one to-do list, and ticking something off it on the
-> dashboard is the one thing in the library that writes back to Home Assistant.
+> **Status: early.** Four cards. Calendar shows your calendars and dated to-dos.
+> Batteries shows the battery sensors you choose. Reminders shows one to-do list and
+> lets you tick items off. Controls adds shortcuts for lights, fans, switches and other
+> Home Assistant entities.
 >
 > It needs a current Home Assistant, **2026.7 or newer**: the cards track the latest
 > frontend APIs rather than carrying compatibility shims.
@@ -226,9 +227,8 @@ Then add a card. The next section shows how.
 
 ## Adding a card
 
-All three cards are in the dashboard's card picker (**Cupertino Calendar**, **Cupertino
-Batteries** and **Cupertino Reminders**), and each has a visual editor, so there is no YAML to
-write unless you want to.
+Find **Cupertino Calendar**, **Cupertino Batteries**, **Cupertino Reminders** and
+**Cupertino Controls** in the dashboard's card picker. Each has a visual editor.
 
 ### The calendar
 
@@ -423,6 +423,30 @@ card disables its checkboxes on the same flag rather than removing them, and for
 reason: a row that lost its circle would read as a different kind of row, where a control that
 answers a tap with a red toast is simply a control that does not work.
 
+### Cupertino Controls
+
+Add **Cupertino Controls** from the card picker and use **Add entity** to build the list.
+Drag the handles to set the tile order. Use the **Layout**
+tab to size the card and **Scale** to resize the tiles within it. **Auto** uses rectangles
+for roomier tiles and switches to squares when they can keep a narrow grid readable or
+fit more entities. A full-width card uses three columns in either format by default.
+Tiles beyond the visible rows are hidden. Set **Columns** or **Rows** to control
+the grid inside the card. Leave either field blank to size that axis automatically.
+
+Tap to toggle an entity that supports it. For other entities, a tap opens **More info**.
+Press and hold or use **Shift+Enter** to open **More info** directly.
+
+```yaml
+type: custom:cupertino-widgets-controls
+entities:
+  - light.kitchen
+  - fan.bedroom
+  - switch.desk
+format: auto # auto, rectangle, or square
+show_name: true
+show_area: true
+```
+
 ## How big it is
 
 **There is no size option.** Resize a card the normal way (the **Layout** tab in the dashboard
@@ -477,6 +501,7 @@ belongs to every card rather than to this one.
 | Battery levels                  | live                        |
 | Reminders, in the calendar card | to-do items with a due date |
 | A to-do list of its own         | live, and tickable          |
+| Cupertino Controls              | entity control tiles        |
 
 ## Development
 
