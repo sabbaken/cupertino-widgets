@@ -17,6 +17,7 @@ import {
 export const CLOCK_CARD_TAG = 'cupertino-clock-card'
 
 const COMPLICATION_GAP = 12
+const MAX_COMPLICATION_DIAMETER = 56
 
 const weatherIcons: Record<string, string> = {
   'clear-night': mdi.mdiWeatherNight,
@@ -71,7 +72,7 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
       .context {
         max-width: 100%;
         font: var(--cw-text-title-3);
-        color: var(--cw-label-secondary);
+        color: var(--cw-label);
         gap: calc(8px * var(--cw-scale));
       }
       .weather {
@@ -193,7 +194,7 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
       ? Math.max(
           0,
           Math.min(
-            76,
+            MAX_COMPLICATION_DIAMETER,
             (width - (rows.length - 1) * COMPLICATION_GAP) / rows.length,
             timeAndReadings * 0.36,
           ),

@@ -189,6 +189,7 @@ export const complicationStyles: CSSResult = css`
   .cw-gauge {
     position: relative;
     flex: none;
+    container: cw-gauge / inline-size;
     /* Required. The 0 is what makes a card that forgot it draw nothing rather than 300px of
        SVG default; the module comment has the argument. */
     width: var(--cw-gauge-size, 0);
@@ -198,9 +199,21 @@ export const complicationStyles: CSSResult = css`
     );
   }
 
-  .cw-gauge-disc {
+  .cw-gauge-disc::before {
+    content: '';
+    position: absolute;
+    inset: 0;
     border-radius: 50%;
     background: var(--cw-track);
+  }
+
+  .cw-gauge-disc-face {
+    display: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: var(--cw-track);
   }
 
   .cw-gauge-gradient {
@@ -220,6 +233,52 @@ export const complicationStyles: CSSResult = css`
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  /* A diameter of roughly 60 device pixels is the trial threshold. The inset keeps the
+     wider stroke inside the viewport while preserving the arc and dot on one centreline.
+     Disc switches to an SVG face in this size range so both renderers can be compared. */
+  @container cw-gauge (width <= 60px) {
+    @media (resolution <= 1dppx) {
+      .cw-gauge-dial,
+      .cw-gauge-disc-face {
+        shape-rendering: geometricPrecision;
+      }
+
+      .cw-gauge-dial,
+      .cw-gauge-gradient {
+        inset: 0.5%;
+        width: 99%;
+        height: 99%;
+      }
+
+      .cw-gauge-track,
+      .cw-gauge-arc {
+        stroke-width: 11;
+      }
+
+      .cw-gauge-gradient-cap {
+        r: 5.5;
+      }
+
+      .cw-gauge-gradient {
+        mask-image: radial-gradient(
+          circle closest-side,
+          transparent 78.5%,
+          black 79.5%,
+          black 99.5%,
+          transparent 100%
+        );
+      }
+
+      .cw-gauge-disc-face {
+        display: block;
+      }
+
+      .cw-gauge-disc::before {
+        display: none;
+      }
+    }
   }
 
   /* Round caps, so a dial's two ends are finished rather than sawn off. A closed circle is a
@@ -463,7 +522,13 @@ export const renderComplication = (spec: ComplicationSpec): TemplateResult => {
     : nothing
   const dial =
     spec.form === 'disc'
-      ? nothing
+      ? html`<svg
+          class="cw-gauge-disc-face"
+          viewBox="0 0 ${COMPLICATION_BOX} ${COMPLICATION_BOX}"
+          aria-hidden="true"
+        >
+          <circle cx=${COMPLICATION_CENTER} cy=${COMPLICATION_CENTER} r=${COMPLICATION_CENTER} />
+        </svg>`
       : html`
           ${gradient ? html`<div class="cw-gauge-gradient" style=${`background: ${gradient}`}></div>` : nothing}
           <svg
@@ -472,7 +537,10 @@ export const renderComplication = (spec: ComplicationSpec): TemplateResult => {
             aria-hidden="true"
           >
             ${caps.map(
-              ({ point, colour }) => svg`<circle cx=${point.x} cy=${point.y}
+              ({
+                point,
+                colour,
+              }) => svg`<circle class="cw-gauge-gradient-cap" cx=${point.x} cy=${point.y}
               r=${COMPLICATION_STROKE / 2} fill=${colour} />`,
             )}
             <g

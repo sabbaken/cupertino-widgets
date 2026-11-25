@@ -38,7 +38,7 @@ export abstract class CupertinoComplicationCardBase<
       .cell[data-unavailable] :is(.cw-gauge-center, .cw-gauge-footer) {
         opacity: 0.55;
       }
-      .cell[data-weather-dial] .cw-gauge-center {
+      .cell:is([data-weather-dial], [data-co2-dial]) .cw-gauge-center {
         top: 50%;
       }
       .cell[data-weather-dial] .cw-gauge-value {
@@ -204,6 +204,7 @@ export abstract class CupertinoComplicationCardBase<
         ?data-unavailable=${!complication.available}
         ?data-degree=${sensorTemperature}
         ?data-weather-dial=${weatherDial}
+        ?data-co2-dial=${complication.key === 'co2' && complication.form === 'dial'}
         style=${styleMap({
           '--cw-gauge-value-scale': valueScale,
           '--cw-gauge-end-scale': endScale,
