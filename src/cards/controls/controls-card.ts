@@ -8,10 +8,10 @@ import { styleMap } from 'lit/directives/style-map.js'
 
 import { CupertinoCard } from '../../core/base-card'
 import { registerCard } from '../../core/register'
-import type { HomeAssistant } from '../../core/types/ha'
+import type { HassEntity, HomeAssistant } from '../../core/types/ha'
 import { baseStyles } from '../../theme/base-styles'
 import { controlsStateColor, tokens } from '../../theme/tokens'
-import { CONTROLS_GAP, CONTROLS_INSET, controlsGrid } from './layout'
+import { CONTROLS_SPACING, controlsGrid } from './layout'
 import {
   controlsActive,
   controlsAreaId,
@@ -23,6 +23,14 @@ import { CONTROLS_EDITOR_TAG } from './controls-editor'
 import { controlsRecommendations } from './recommendations'
 
 export const CONTROLS_CARD_TAG = 'cupertino-widgets-controls'
+
+const TOGGLE_CONFIRMATION_MS = 5_000
+
+interface PendingToggle {
+  from: 'on' | 'off'
+  to: 'on' | 'off'
+  timer: ReturnType<typeof setTimeout>
+}
 
 class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
   static override styles = [
@@ -37,24 +45,12 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
         flex: 1 1 0;
         min-height: 0;
         display: grid;
-        padding: var(--cw-controls-inset);
-        gap: var(--cw-controls-gap);
-        grid-auto-rows: var(--cw-controls-track-height);
+        padding: var(--cw-controls-spacing);
+        gap: var(--cw-controls-spacing);
+        grid-template-rows: repeat(var(--cw-controls-rows), minmax(0, 1fr));
         grid-template-columns: repeat(var(--cw-controls-columns), minmax(0, 1fr));
         align-content: start;
         overflow: clip;
-      }
-
-      .grid.scroll {
-        overflow-y: auto;
-      }
-
-      .grid.square {
-        grid-template-columns: repeat(
-          var(--cw-controls-columns),
-          minmax(0, var(--cw-controls-tile-height))
-        );
-        justify-content: space-between;
       }
 
       button {
@@ -64,7 +60,7 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
         /* The inset starts at the inside of the card's border. */
         --cw-tile-radius: max(
           0px,
-          calc(var(--cw-radius) - var(--cw-card-border-width) - var(--cw-controls-inset))
+          calc(var(--cw-radius) - var(--cw-card-border-width) - var(--cw-controls-spacing))
         );
         border-radius: var(--cw-tile-radius);
         @supports (corner-shape: superellipse(1.3)) {
@@ -119,8 +115,6 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
 
       .square button {
         --cw-tile-radius: var(--cw-radius);
-        align-self: start;
-        height: var(--cw-controls-tile-height);
         /* Keep space for a 24px icon and two 16px lines in denser grids. */
         padding-block: clamp(
           0px,
@@ -239,6 +233,7 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
   private _suppressClick = false
 
   private _recommended: string[] = []
+  private readonly _pendingToggles = new Map<string, PendingToggle>()
 
   private _grid(config: ControlsConfig, count: number) {
     return controlsGrid(
@@ -252,7 +247,11 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
   }
 
   protected override watchedEntities(): string[] {
-    return [...controlsEntities(this._config?.entities), ...this._recommended]
+    return [
+      ...controlsEntities(this._config?.entities),
+      ...this._recommended,
+      ...this._pendingToggles.keys(),
+    ]
   }
 
   protected override shouldUpdate(changed: PropertyValues): boolean {
@@ -290,9 +289,38 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
     }
   }
 
+  protected override willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed)
+    for (const [id, pending] of this._pendingToggles) {
+      if (this.preview || this.hass?.states[id]?.state !== pending.from) {
+        this._clearToggle(id, pending)
+      }
+    }
+  }
+
   public override disconnectedCallback(): void {
     this._cancelPress()
+    for (const [id, pending] of this._pendingToggles) this._clearToggle(id, pending)
+    this.requestUpdate()
     super.disconnectedCallback()
+  }
+
+  private _clearToggle(id: string, pending: PendingToggle): boolean {
+    if (this._pendingToggles.get(id) !== pending) return false
+    clearTimeout(pending.timer)
+    this._pendingToggles.delete(id)
+    return true
+  }
+
+  private _displayEntity(entity?: HassEntity): HassEntity | undefined {
+    if (!entity) return undefined
+    const pending = this._pendingToggles.get(entity.entity_id)
+    if (!pending) return entity
+    return {
+      ...entity,
+      state: pending.to,
+      attributes: { ...entity.attributes, brightness: undefined, percentage: undefined },
+    }
   }
 
   private _moreInfo(entityId: string): void {
@@ -318,8 +346,24 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
       this._moreInfo(id)
       return
     }
+    // A second toggle before confirmation would depend on when the first reaches the device.
+    if (this._pendingToggles.has(id)) return
+    let pending: PendingToggle | undefined
+    const rollback = () => {
+      if (pending && this._clearToggle(id, pending)) this.requestUpdate()
+    }
+    if (entity.state === 'on' || entity.state === 'off') {
+      const from = entity.state
+      pending = {
+        from,
+        to: from === 'on' ? 'off' : 'on',
+        timer: setTimeout(rollback, TOGGLE_CONFIRMATION_MS),
+      }
+      this._pendingToggles.set(id, pending)
+      this.requestUpdate()
+    }
     // Home Assistant already presents service errors in its own notification.
-    void this.hass?.callService(domain, 'toggle', {}, { entity_id: id }).catch(() => {})
+    void this.hass?.callService(domain, 'toggle', {}, { entity_id: id }).catch(rollback)
   }
 
   private _startPress(event: PointerEvent, id: string): void {
@@ -360,15 +404,13 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
     const manual = controlsEntities(config.entities)
     const grid = this._grid(config, manual.length)
     this._recommended = controlsRecommendations(hass, config, manual, grid.capacity)
-    const ids = [...manual, ...this._recommended]
-    const scroll = manual.length > grid.capacity
+    const ids = [...manual.slice(0, grid.capacity), ...this._recommended]
     const iconOnly =
       grid.shape === 'square' && config.show_name === false && config.show_area === false
     const lengths = styleMap({
-      '--cw-controls-inset': `calc(${CONTROLS_INSET}px * var(--cw-scale))`,
-      '--cw-controls-gap': `calc(${CONTROLS_GAP}px * var(--cw-scale))`,
+      '--cw-controls-spacing': `calc(${CONTROLS_SPACING}px * var(--cw-scale))`,
       '--cw-controls-columns': grid.columns,
-      '--cw-controls-track-height': `calc(${grid.trackHeight}px * var(--cw-scale))`,
+      '--cw-controls-rows': grid.rows,
       '--cw-controls-tile-height': `calc(${grid.tileHeight}px * var(--cw-scale))`,
     })
 
@@ -377,14 +419,12 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
         ${
           ids.length
             ? html`
-                <div
-                  class=${`grid ${grid.shape}${scroll ? ' scroll' : ''}${iconOnly ? ' icon-only' : ''}`}
-                >
+                <div class=${`grid ${grid.shape}${iconOnly ? ' icon-only' : ''}`}>
                   ${repeat(
                     ids,
                     id => id,
                     id => {
-                      const entity = hass.states[id]
+                      const entity = this._displayEntity(hass.states[id])
                       const state = entity?.state ?? 'unavailable'
                       const available = state !== 'unavailable' && state !== 'unknown'
                       const active = entity && available ? controlsActive(entity) : false

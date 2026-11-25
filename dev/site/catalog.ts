@@ -344,8 +344,8 @@ const controls: Widget = {
       group: 'card',
       options: [
         { value: 'auto', label: 'Auto' },
-        { value: 'rectangle', label: 'Rectangles' },
-        { value: 'square', label: 'Squares' },
+        { value: 'rectangle', label: 'Side by side' },
+        { value: 'square', label: 'Stacked' },
       ],
       initial: 'auto',
     },

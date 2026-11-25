@@ -16,6 +16,7 @@ import { html, nothing, type TemplateResult } from 'lit'
 import { mdiChevronRight } from '@mdi/js'
 
 import { columnsToPx, gridOptions, rowsToPx } from '../../src/core/size'
+import { CONTROL_STATES } from '../control-entities'
 import type { Widget } from './catalog'
 import type { EditorPanel } from './editor'
 import { icon } from './icon'
@@ -106,6 +107,29 @@ export function previews(
         MEDIUM,
         boxed(footprintBox(MEDIUM, sectionWidth), slotCard('preview:medium', widget.tag)),
       )}
+      ${
+        widget.id === 'controls'
+          ? [
+              { count: 2, name: 'Small · Two devices' },
+              { count: 1, name: 'Small · One device' },
+            ].map(({ count, name }) =>
+              preview(
+                name,
+                SMALL,
+                boxed(
+                  footprintBox(SMALL, sectionWidth),
+                  slotCard(`preview:controls-${count}`, widget.tag, config => ({
+                    ...config,
+                    entities: CONTROL_STATES.slice(0, count).map(entity => entity.entity_id),
+                    recommend_devices: false,
+                    tile_columns: count,
+                    tile_rows: 1,
+                  })),
+                ),
+              ),
+            )
+          : nothing
+      }
       ${preview('Drag to resize', undefined, dragBox(slotCard('preview:drag', widget.tag), onDrag))}
     </div>
   `

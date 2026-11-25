@@ -42,8 +42,8 @@ const advanced: HaFormSchema = {
           mode: 'list',
           options: [
             { value: 'auto', label: 'Auto' },
-            { value: 'rectangle', label: 'Rectangles' },
-            { value: 'square', label: 'Squares' },
+            { value: 'rectangle', label: 'Side by side' },
+            { value: 'square', label: 'Stacked' },
           ],
         },
       },
@@ -117,9 +117,7 @@ class CupertinoControlsEditor extends CupertinoCardEditor<ControlsConfig> {
       config,
     )
     const hint = `Estimated visible tiles at the configured Layout and Scale: ${capacity}.`
-    return ids.length > capacity
-      ? `${hint} ${ids.length - capacity} more manual tiles are available by scrolling.`
-      : hint
+    return ids.length > capacity ? `${hint} Pinned tiles beyond this limit are hidden.` : hint
   }
 }
 

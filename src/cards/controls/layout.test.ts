@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { columnsToPx, rowsToPx } from '../../core/size'
-import { controlsGrid } from './layout'
+import { CONTROLS_SPACING, controlsGrid } from './layout'
 
 const halfWidth = columnsToPx(6, 500)
 const fourRows = rowsToPx(4)
@@ -37,7 +37,7 @@ describe('tile capacity', () => {
     })
   })
 
-  it('chooses two rectangle columns when three squares leave wide gutters', () => {
+  it('chooses two rectangle columns when three square columns would widen too far', () => {
     expect(controlsGrid(303, 248, 1, 8, 'auto')).toMatchObject({
       shape: 'rectangle',
       columns: 2,
@@ -46,7 +46,7 @@ describe('tile capacity', () => {
     expect(controlsGrid(303, 248, 1, 8, 'square')).toMatchObject({
       shape: 'square',
       columns: 3,
-      tileHeight: 80,
+      tileHeight: 114,
     })
   })
 
@@ -54,7 +54,7 @@ describe('tile capacity', () => {
     expect(controlsGrid(500, fourRows, 1, 8, 'rectangle')).toMatchObject({
       shape: 'rectangle',
       columns: 3,
-      tileHeight: 70,
+      tileHeight: 74,
       capacity: 9,
     })
     expect(controlsGrid(500, fourRows, 1, 8, 'square')).toMatchObject({
@@ -78,13 +78,12 @@ describe('tile capacity', () => {
     expect(controlsGrid(halfWidth, fourRows, 1.3, 8, 'auto').columns).toBe(2)
   })
 
-  it('honours manual columns and rows without stretching square tiles', () => {
+  it('fills the row tracks with square-format tiles at the requested density', () => {
     const grid = controlsGrid(halfWidth, fourRows, 1, 8, 'square', {
       tile_columns: 2,
       tile_rows: 2,
     })
-    expect(grid).toMatchObject({ shape: 'square', columns: 2, capacity: 4 })
-    expect(grid.tileHeight).toBeLessThan(grid.trackHeight)
+    expect(grid).toMatchObject({ shape: 'square', columns: 2, capacity: 4, tileHeight: 114 })
   })
 
   it('applies a row override independently of automatic columns', () => {
@@ -95,12 +94,26 @@ describe('tile capacity', () => {
     })
   })
 
-  it('keeps the minimum row height when the requested rows exceed the viewport', () => {
+  it('reduces the row count when the requested rows exceed the viewport', () => {
     expect(
       controlsGrid(halfWidth, fourRows, 1, 8, 'rectangle', {
         tile_columns: 2,
         tile_rows: 6,
       }),
-    ).toMatchObject({ shape: 'rectangle', columns: 2, tileHeight: 56, capacity: 6 })
+    ).toMatchObject({ shape: 'rectangle', columns: 2, tileHeight: 74, capacity: 6 })
   })
+
+  it.each(['square', 'rectangle'] as const)(
+    'fills the measured height with equal padding and gaps in %s format',
+    format => {
+      const height = 263
+      const scale = 1.2
+      const grid = controlsGrid(307, height, scale, 20, format)
+      const rows = grid.capacity / grid.columns
+      expect(rows).toBeGreaterThan(1)
+      expect(2 + scale * (rows * grid.tileHeight + (rows + 1) * CONTROLS_SPACING)).toBeCloseTo(
+        height,
+      )
+    },
+  )
 })

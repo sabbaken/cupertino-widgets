@@ -434,10 +434,12 @@ Leave **Recommendation areas** empty for the whole home, or choose the areas to 
 controls from. The area filter applies to recommendations.
 
 Use **Layout** to size the card and **Scale** to resize its tiles. **Auto** chooses
-a format for the pinned controls based on how many fit and the gaps between square tiles.
-A card showing only recommendations starts with rectangles when they fit. Additional pinned
-controls can be reached by scrolling. **Columns** and **Rows** optionally set the density
-inside the card.
+a format for the pinned controls based on how many fit and the width of the tiles.
+A card showing only recommendations starts with **Side by side** when those tiles fit.
+**Stacked** puts the icon above the text. Pinned controls
+are shown in order up to the card's capacity. **Columns** and **Rows** optionally set the
+density inside the card. Tiles stretch to fill their grid tracks with equal inner padding
+and spacing between tiles.
 
 Tap to toggle an entity that supports it. For other entities, a tap opens **More info**.
 Press and hold or use **Shift+Enter** to open **More info** directly.

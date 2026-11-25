@@ -11,8 +11,7 @@ export interface ControlsDensity {
   tile_rows?: number
 }
 
-export const CONTROLS_INSET = 6
-export const CONTROLS_GAP = 6
+export const CONTROLS_SPACING = 6
 export const CONTROLS_MAX_COLUMNS = 8
 export const CONTROLS_MAX_ROWS = 12
 
@@ -29,9 +28,9 @@ export const controlsGrid = (
   format: ControlsFormat,
   density: ControlsDensity = {},
 ) => {
-  const innerWidth = Math.max(0, (width - 2) / scale - 2 * CONTROLS_INSET)
-  const innerHeight = Math.max(0, (height - 2) / scale - 2 * CONTROLS_INSET)
-  const step = (size: number) => size + CONTROLS_GAP
+  const innerWidth = Math.max(0, (width - 2) / scale - 2 * CONTROLS_SPACING)
+  const innerHeight = Math.max(0, (height - 2) / scale - 2 * CONTROLS_SPACING)
+  const step = (size: number) => size + CONTROLS_SPACING
   const requestedColumns = tracks(density.tile_columns, CONTROLS_MAX_COLUMNS)
   const requestedRows = tracks(density.tile_rows, CONTROLS_MAX_ROWS)
   // A full-width card keeps three tracks in both formats. Scale still sets the
@@ -42,7 +41,7 @@ export const controlsGrid = (
     if (wide) return 3
     return Math.max(1, Math.floor(step(innerWidth) / step(minWidth)))
   }
-  const fit = (space: number, slots: number) => Math.max(1, step(space) / slots - CONTROLS_GAP)
+  const fit = (space: number, slots: number) => Math.max(1, step(space) / slots - CONTROLS_SPACING)
   const rowsFor = (pitch: number) => Math.floor((step(innerHeight) + 0.01) / step(pitch))
   const rowHeight = (preferred: number) =>
     requestedRows ? Math.max(56, fit(innerHeight, requestedRows)) : preferred
@@ -53,8 +52,10 @@ export const controlsGrid = (
   const squareLimit = wide ? Math.min(114, Math.max(80, fit(innerHeight, 2))) : 80
   const squareSize = Math.min(squareLimit, fit(innerWidth, squareColumns), rowHeight(squareLimit))
   const squareTrackHeight = requestedRows ? rowHeight(squareSize) : squareSize
-  const rectangleCapacity = rectangleColumns * rowsFor(rectangleHeight)
-  const squareCapacity = squareColumns * rowsFor(squareTrackHeight)
+  const rectangleRows = rowsFor(rectangleHeight)
+  const squareRows = rowsFor(squareTrackHeight)
+  const rectangleCapacity = rectangleColumns * rectangleRows
+  const squareCapacity = squareColumns * squareRows
   // The narrower square uses more of the tile for the name. On wide cards
   // compare the visible counts before switching to a different format.
   const compact =
@@ -64,30 +65,24 @@ export const controlsGrid = (
     rectangleColumns < 3 &&
     squareColumns >= 3 &&
     squareCapacity >= Math.min(count, rectangleCapacity)
-  // Edge padding anchors the square grid, so surplus width lands in the gaps.
-  // Allow a little more room around larger squares before switching to rectangles.
-  const squareGap =
-    squareColumns > 1 ? (innerWidth - squareColumns * squareSize) / (squareColumns - 1) : 0
+  // Keep the stacked layout in Auto when its columns can stay close to the preferred width.
+  const squareExcess = innerWidth - squareColumns * squareSize
   const balancedSquares =
-    rectangleCapacity === 0 || squareGap <= Math.max(2 * CONTROLS_GAP, squareSize / 5)
+    rectangleCapacity === 0 ||
+    squareColumns === 1 ||
+    squareExcess <= (squareColumns - 1) * Math.max(2 * CONTROLS_SPACING, squareSize / 5)
   const useSquares =
     format === 'square' ||
     (format === 'auto' &&
       balancedSquares &&
       (compact || (count > rectangleCapacity && squareCapacity > rectangleCapacity)))
-  return useSquares
-    ? {
-        shape: 'square',
-        columns: squareColumns,
-        tileHeight: squareSize,
-        trackHeight: squareTrackHeight,
-        capacity: squareCapacity,
-      }
-    : {
-        shape: 'rectangle',
-        columns: rectangleColumns,
-        tileHeight: rectangleHeight,
-        trackHeight: rectangleHeight,
-        capacity: rectangleCapacity,
-      }
+  const rows = useSquares ? squareRows : rectangleRows
+  const columns = useSquares ? squareColumns : rectangleColumns
+  return {
+    shape: useSquares ? ('square' as const) : ('rectangle' as const),
+    columns,
+    rows,
+    tileHeight: rows > 0 ? fit(innerHeight, rows) : 0,
+    capacity: columns * rows,
+  }
 }
