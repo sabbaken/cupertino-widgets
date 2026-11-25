@@ -37,10 +37,19 @@ import './shots.css'
 
 import type { LitElement } from 'lit'
 
-import { BATTERY_CARD_TAG, CALENDAR_CARD_TAG, REMINDERS_CARD_TAG } from '../src/index'
+import {
+  BATTERY_CARD_TAG,
+  CALENDAR_CARD_TAG,
+  CLOCK_CARD_TAG,
+  COMPLICATIONS_CARD_TAG,
+  CONTROLS_CARD_TAG,
+  REMINDERS_CARD_TAG,
+} from '../src/index'
 import { columnsToPx, layoutFromBox, rowsToPx } from '../src/core/size'
 import type { LovelaceCard, LovelaceCardConfig } from '../src/core/types/ha'
 import { deviceSet } from './battery-devices'
+import { COMPLICATION_SETS, COMPLICATION_WEATHER } from './complications-entities'
+import { CONTROL_STATES } from './control-entities'
 import { defineHaStubs } from './ha-stubs'
 import { createMockHass } from './mock-hass'
 import { reminderList } from './reminders-lists'
@@ -229,6 +238,39 @@ const SHOTS: readonly Shot[] = [
     columns: 12,
     rows: 4,
     theme: 'dark',
+  },
+  {
+    name: 'controls-medium',
+    caption: 'pinned controls for lights, fans and switches',
+    tag: CONTROLS_CARD_TAG,
+    config: {
+      entities: CONTROL_STATES.slice(1, 5).map(entity => entity.entity_id),
+      recommend_devices: false,
+      show_area: false,
+      tile_columns: 2,
+      tile_rows: 2,
+    },
+    columns: 12,
+    rows: 4,
+    theme: 'light',
+  },
+  {
+    name: 'complications-medium',
+    caption: 'temperature, humidity, UV index and wind',
+    tag: COMPLICATIONS_CARD_TAG,
+    config: { entities: COMPLICATION_SETS.weather },
+    columns: 12,
+    rows: 4,
+    theme: 'light',
+  },
+  {
+    name: 'clock-medium',
+    caption: 'time, date, weather and four complications',
+    tag: CLOCK_CARD_TAG,
+    config: { weather_entity: COMPLICATION_WEATHER, entities: COMPLICATION_SETS.mixed },
+    columns: 12,
+    rows: 4,
+    theme: 'light',
   },
 ]
 

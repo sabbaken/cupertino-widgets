@@ -12,20 +12,14 @@
 >
 > 💼 [LinkedIn](https://www.linkedin.com/in/kiryl-viarenich)
 
-Widget cards for [Home Assistant](https://www.home-assistant.io/) dashboards, styled like the
-ones on a phone's home screen: sensible defaults instead of a config to fill in, and a shape
-taken from the box you drag them into rather than from a size setting.
+Phone-style dashboard cards for Home Assistant 2026.7 or newer. Resize them in the
+dashboard’s **Layout** tab and the contents adapt to the space.
 
 **[Live demo](https://sabbaken.github.io/cupertino-widgets/)** ·
 **[Install](#install)** ·
-**[The calendar](#the-calendar)** ·
-**[The batteries](#the-batteries)** ·
-**[The reminders](#the-reminders)** ·
-**[Cupertino Controls](#cupertino-controls)** ·
-**[Card rules](docs/calendar-widget-rules.md)** ·
-**[Ring rules](docs/battery-widget-rules.md)** ·
-**[List rules](docs/reminders-widget-rules.md)** ·
-**[Complication rules](docs/complication-rules.md)**
+**[Configuration](#adding-a-card)**
+
+Try the widgets with sample data in the demo and copy the configuration for your dashboard.
 
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sabbaken)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sabbaken)
@@ -35,181 +29,58 @@ taken from the box you drag them into rather than from a size setting.
 [![License: AGPL-3.0](https://img.shields.io/github/license/sabbaken/cupertino-widgets)](./LICENSE)
 [![Home Assistant 2026.7+](https://img.shields.io/badge/Home%20Assistant-2026.7%2B-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 
-The demo runs every size live, with sample data and the clock under your control, and hands
-you the config to paste when you like what you see: nothing to install to look.
-
-> **Status: early.** Four cards. Calendar shows your calendars and dated to-dos.
-> Batteries shows the battery sensors you choose. Reminders shows one to-do list and
-> lets you tick items off. Controls adds shortcuts for lights, fans, switches and other
-> Home Assistant entities.
->
-> It needs a current Home Assistant, **2026.7 or newer**: the cards track the latest
-> frontend APIs rather than carrying compatibility shims.
-
-## The calendar
-
-Today's date, then today's events, then as much of the days after today as the card has
-room for, one continuous flow poured through however many columns the footprint gives it.
-Each event is tinted with the colour of the calendar it came from, and anything due out of
-your to-do lists joins the same flow at its own time. Empty days are not listed as empty,
-they simply do not appear, and whatever is left of the day the card ran out of room in
-becomes `2 more events`.
-
-It does not have to be about today. **First day** and **Days shown**, in the editor's
-**Advanced** section, point a card at any day relative to this one, so three of them side
-by side can read yesterday, today and tomorrow. The whole card follows: the date at the
-top, the day that goes without a heading, and the line a quiet day shows.
+## Widgets
 
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
       <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-medium.png" width="420"
-           alt="A medium calendar card: Friday 24, Design review and Lunch with Anna in the left column, Dentist and tomorrow's Market run in the right, then 2 more events">
+           alt="Calendar with Friday’s events and Saturday’s Market run">
       <br />
-      <sub><b>Medium.</b> A full day, then tomorrow. <code>Dentist</code> is still today;
-      the flow simply ran out of left column.</sub>
+      <b><a href="#the-calendar">Calendar</a></b><br />
+      <sub>Calendar events and dated to-dos.</sub>
     </td>
-    <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-small.png" width="222"
-           alt="A small square calendar card: Friday 24, an all-day Poznań trip, Standup, and 1 more event">
-      <br />
-      <sub><b>Small.</b> Today and nothing else, ever. The badge is an all-day event, which
-      has no time to show and so gets a row to itself.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-empty-today.png" width="420"
-           alt="A medium calendar card: No Events Today on the left, tomorrow's Market run and Coffee with Marta on the right">
-      <br />
-      <sub><b>A quiet day.</b> Nothing today, so it says so, and rather than leave the
-      other column empty as well, the flow starts there with tomorrow.</sub>
-    </td>
-    <td align="center" valign="top">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-dark.png" width="420"
-           alt="A medium calendar card on a dark theme: Design review today in the left column, and a SUNDAY, JUL 26 heading over Market run and Coffee with Marta in the right, then 1 more event">
-      <br />
-      <sub><b>Dark theme.</b> It follows the one you picked in Home Assistant. Tomorrow is
-      empty here, so it is skipped, and the heading becomes a date, because
-      <code>TOMORROW</code> has to mean literally tomorrow.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" colspan="2">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/calendar-single-column.png" width="420"
-           alt="A large calendar card in a light theme and Single Column Mode: Friday, Jul 24 above Design review, Lunch with Anna and Dentist, then Saturday, Jul 25 above Market run, Coffee with Marta and Training, with event times on the right">
-      <br />
-      <sub><b>Large, Single Column Mode.</b> Dates head a full-width list, with each event's
-      start and end times stacked on the right.</sub>
-    </td>
-  </tr>
-</table>
-
-Those are fixtures rather than anybody's real week. What the card decides to show, and in
-what order, is written down in
-[`docs/calendar-widget-rules.md`](docs/calendar-widget-rules.md), down to why `5 – 6PM`
-prints only one `PM`.
-
-## The batteries
-
-A ring per device, green all the way, with the level read off the length of the arc and a bolt
-on whatever is charging. Point it at the battery sensors you actually care about and it works
-out the rest: how many rings across, whether there is room for the percentages, and how big to
-draw them. **Four devices per card at these two sizes**: two across in the square, four across
-in the wide one.
-
-<table>
-  <tr>
     <td align="center" valign="top" width="50%">
       <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-medium.png" width="420"
-           alt="A medium battery card: four green rings with a phone at 72%, a watch at 41% charging, earbuds at 8% and a tablet at 100% charging">
+           alt="Battery rings for four devices">
       <br />
-      <sub><b>Medium.</b> Four devices fit one row, so they keep their percentages. The bolts
-      are the two on a charger.</sub>
-    </td>
-    <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-small.png" width="222"
-           alt="A small square battery card: two green rings, a phone at 72% and a watch at 41% charging">
-      <br />
-      <sub><b>Small.</b> One or two devices in the square is the left half of the medium card,
-      percentages and all.</sub>
+      <b><a href="#the-batteries">Batteries</a></b><br />
+      <sub>Battery levels and charging status.</sub>
     </td>
   </tr>
-  <tr>
-    <td align="center" valign="top">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-compact.png" width="222"
-           alt="A small square battery card: four green rings without percentages, in a two by two grid">
-      <br />
-      <sub><b>Three or more in the square.</b> The percentages come off and the grid closes up;
-      a caption is worth a row of its own, and past one row there is nowhere to keep buying
-      it.</sub>
-    </td>
-    <td align="center" valign="top">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/battery-dark.png" width="420"
-           alt="A medium battery card on a dark theme: four rings reading 72%, 41% charging, 22% and a dash, the last one an empty ring with a dimmed doorbell icon">
-      <br />
-      <sub><b>Dark theme.</b> It follows the one you picked in Home Assistant. The last ring is
-      empty with its icon dimmed and a dash for a reading, since that device has stopped
-      reporting, which is a thing the card says rather than hides.</sub>
-    </td>
-  </tr>
-</table>
-
-The ring is green at 5% as much as at 95%, and that is on purpose: the arc's length is already
-the reading, so a colour changing underneath it would be a second, coarser version of the same
-number. [`docs/battery-widget-rules.md`](docs/battery-widget-rules.md) has the whole argument,
-along with every rule above.
-
-## The reminders
-
-One to-do list: how many things are still on it, what the list is called, and as many of them
-as the card has room for. **Tap one to tick it off.** The row stays where it is for five
-seconds so a tap you did not mean can be taken back, and then it goes. Tap the count, the name
-or the badge and the to-do panel opens on that list.
-
-<table>
   <tr>
     <td align="center" valign="top" width="50%">
       <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-medium.png" width="420"
-           alt="A medium reminders card: a purple home badge over the count 7 and the name Home in a column on the left, and five unticked items on the right beginning with Water the plants">
+           alt="Home to-do list with a count of seven and five visible items">
       <br />
-      <sub><b>Medium.</b> The badge, the count and the name are a column beside the rows, which
-      leaves the list the full height of the card. Five of the seven fit; the count says so.</sub>
+      <b><a href="#the-reminders">Reminders</a></b><br />
+      <sub>A to-do list you can tick off from the dashboard.</sub>
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-small.png" width="222"
-           alt="A small square reminders card: Home in purple on the left of one line with 7 on the right, then four unticked items, three of them truncated">
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/controls-medium.png" width="420"
+           alt="Controls for a ceiling fan, a desk power strip and two lamps">
       <br />
-      <sub><b>Small.</b> No room for a badge, so the name and the count share the heading's one
-      line. Titles that run out of room are truncated rather than wrapped.</sub>
+      <b><a href="#cupertino-controls">Controls</a></b><br />
+      <sub>Shortcuts for lights, fans, switches and other devices.</sub>
     </td>
   </tr>
   <tr>
-    <td align="center" valign="top">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-large.png" width="420"
-           alt="A large reminders card: the count 7 over the name Home at the top left, a purple home badge at the top right, a hairline, then all seven items across the full width">
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/complications-medium.png" width="420"
+           alt="Weather readings for temperature, humidity, UV index and west wind">
       <br />
-      <sub><b>Large.</b> Drag it taller and the heading moves above the rows, which is what buys
-      them the whole width: the title that was truncated in the wide card fits here.</sub>
+      <b><a href="#cupertino-complications">Complications</a></b><br />
+      <sub>Sensor and weather readings in rings, dials and discs.</sub>
     </td>
-    <td align="center" valign="top">
-      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/reminders-dark.png" width="420"
-           alt="A medium reminders card on a dark theme: a purple people badge, the count 4 and the name Shared list wrapped over two lines, and four items beginning with Milk, bread and coffee">
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/sabbaken/cupertino-widgets/main/docs/images/clock-medium.png" width="420"
+           alt="Clock at 9:41 with Friday’s date, weather and four monochrome readings">
       <br />
-      <sub><b>Dark theme.</b> It follows the one you picked in Home Assistant. A list shorter
-      than the box simply ends; nothing is padded out to fill it.</sub>
+      <b><a href="#cupertino-clock">Clock</a></b><br />
+      <sub>Time and date, with optional weather and up to four readings.</sub>
     </td>
   </tr>
 </table>
-
-Ticking something off calls `todo.update_item` at once rather than waiting out the five
-seconds, so every other Home Assistant client sees it immediately and closing the dashboard
-cannot lose it. The five seconds are the card holding the row on screen against a list that has
-already moved on, which is also what makes the tick appear under your finger instead of a round
-trip later. A list that does not accept updates is drawn exactly the same and simply does not
-respond: no tap target, no tab stop, and nothing announcing a checkbox that would fail.
-[`docs/reminders-widget-rules.md`](docs/reminders-widget-rules.md) has every rule above,
-including why there is no repeat glyph: Home Assistant has no recurrence to draw one from.
 
 ## Install
 

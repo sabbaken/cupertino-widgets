@@ -22,12 +22,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Stamp the version from the tag
-        # The version is baked into the bundle's console banner, so it has to match
-        # the tag rather than whatever happens to sit in package.json.
-        # `--allow-same-version` keeps this a no-op rather than an error when the
-        # release commit already carries the tag's version.
-        run: pnpm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+      - name: Check the tag matches package.json
+        run: |
+          package_tag="v$(node -p 'require("./package.json").version')"
+          if [ "$GITHUB_REF_NAME" != "$package_tag" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME must match $package_tag from package.json"
+            exit 1
+          fi
 
       - run: pnpm run build
 

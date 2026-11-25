@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
+import packageJson from './package.json' with { type: 'json' }
 
-const { version } = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string }
+const { version } = packageJson
 
 /**
  * Kept in the shipped file on purpose. The bundle is served to every dashboard
