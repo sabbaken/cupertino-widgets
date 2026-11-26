@@ -3,6 +3,7 @@
  * follows the measured box by default, with explicit overrides in either direction.
  */
 
+import { cwBrowserLocale, t } from '../../core/i18n'
 import { mdiTune } from '@mdi/js'
 
 import {
@@ -32,16 +33,6 @@ import { remindersEnabled } from './todo-source'
 export const CALENDAR_EDITOR_TAG = 'cupertino-widgets-calendar-editor'
 
 /**
- * Partly localised: Home Assistant has a translated string for the calendar list (its own
- * calendar card uses it) and one for the to-do lists, which is the name of its own to-do
- * panel rather than a card label, but it is the same words in the user's language and the
- * alternative is English. There is nothing for the other two rows. `localize` answers an
- * empty string for a key it does not know, which is what the `||`s are for.
- */
-const CALENDARS_KEY = 'ui.panel.lovelace.editor.card.calendar.calendar_entities'
-const TODO_LISTS_KEY = 'panel.todo'
-
-/**
  * Five rows of the card's own, and it took a detour to get here. (A sixth, **Scale**,
  * arrives from `CupertinoCardEditor` under them, since it belongs to every card in the
  * library rather than to this one, and three more are folded away in **Advanced** under
@@ -61,9 +52,9 @@ const TODO_LISTS_KEY = 'panel.todo'
  * The clock is here for a narrower reason than the entities are. See `TIME_FORMAT_OPTIONS`.
  */
 const CLOCK_LABELS: Record<string, string> = {
-  system: 'System',
-  '12': '12-hour',
-  '24': '24-hour',
+  system: t('calendar.system'),
+  '12': t('calendar.hour12'),
+  '24': t('calendar.hour24'),
 }
 
 const CALENDARS_ROW: HaFormSchema = {
@@ -84,9 +75,9 @@ const SINGLE_COLUMN_ROW: HaFormSchema = {
   selector: {
     select: {
       options: [
-        { value: 'auto', label: 'Automatic' },
-        { value: 'on', label: 'Always on' },
-        { value: 'off', label: 'Off' },
+        { value: 'auto', label: t('calendar.automatic') },
+        { value: 'on', label: t('calendar.alwaysOn') },
+        { value: 'off', label: t('calendar.off') },
       ],
     },
   },
@@ -125,7 +116,7 @@ const OFFSET_ROW: HaFormSchema = {
       max: MAX_DAY_OFFSET,
       step: 1,
       mode: 'box',
-      unit_of_measurement: 'days',
+      unit_of_measurement: t('calendar.days'),
     },
   },
 }
@@ -138,7 +129,7 @@ const SPAN_ROW: HaFormSchema = {
       max: MAX_DAY_SPAN,
       step: 1,
       mode: 'box',
-      unit_of_measurement: 'days',
+      unit_of_measurement: t('calendar.days'),
     },
   },
 }
@@ -171,7 +162,7 @@ const advancedSection = (config: CalendarCardConfig | undefined): HaFormSchema =
     name: 'advanced',
     type: 'expandable',
     flatten: true,
-    title: 'Advanced',
+    title: t('common.advanced'),
     iconPath: mdiTune,
     expanded:
       offsetDays !== 0 ||
@@ -244,7 +235,11 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
   }
 
   private get _ctx(): FormatContext {
-    const { locale, hour12 } = timePreferences(this.hass?.locale, this._config?.time_format)
+    const { locale: profileLocale, hour12 } = timePreferences(
+      this.hass?.locale,
+      this._config?.time_format,
+    )
+    const locale = cwBrowserLocale ?? profileLocale
     return { locale, timeZone: displayTimeZone(this.hass), hour12 }
   }
 
@@ -281,19 +276,19 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
   protected override label(schema: HaFormSchema): string {
     switch (schema.name) {
       case 'entities':
-        return this.hass?.localize(CALENDARS_KEY) || 'Calendars'
+        return t('calendar.calendars')
       case 'show_reminders':
-        return 'Reminders'
+        return t('calendar.reminders')
       case 'todo_entities':
-        return this.hass?.localize(TODO_LISTS_KEY) || 'To-do lists'
+        return t('calendar.todoLists')
       case 'time_format':
-        return 'Clock'
+        return t('calendar.clock')
       case 'single_column':
-        return 'Single Column'
+        return t('calendar.singleColumn')
       case 'day_offset':
-        return 'First day'
+        return t('calendar.firstDay')
       case 'days_to_show':
-        return 'Days shown'
+        return t('calendar.daysShown')
       case BLOCKLIST_FIELD:
         return BLOCKLIST_LABEL
       default:
@@ -304,25 +299,25 @@ class CupertinoCalendarCardEditor extends CupertinoCardEditor<CalendarCardConfig
   protected override helper(schema: HaFormSchema): string | undefined {
     switch (schema.name) {
       case 'entities':
-        return 'Leave empty to show every calendar.'
+        return t('calendar.calendarsHelp')
       case 'show_reminders':
         // What "reminder" means here, in the one line there is room for it: a to-do item
         // with a due date. An item with no due date has no day to be drawn on, so a list
         // being shown is not the same as all of it being shown.
-        return 'Draw to-do items that have a due date alongside your events.'
+        return t('calendar.remindersHelp')
       case 'todo_entities':
-        return 'Leave empty to read every to-do list.'
+        return t('calendar.todoListsHelp')
       case 'single_column':
-        return 'Automatic uses one column in a large, near-square card. Off keeps the usual layout.'
+        return t('calendar.singleColumnHelp')
       case 'time_format':
         // Worth spelling out: "System" is the Home Assistant profile setting, not the
         // operating system's, and the profile's own detection cannot see, for instance,
         // macOS's 24-hour switch, which is exactly when the other two earn their place.
-        return 'System follows your Home Assistant time format. Pick one to override it.'
+        return t('calendar.clockHelp')
       case 'day_offset':
         // The units, in the only place they can be stated: the box's own suffix says
         // `days`, which leaves "days from when, and which way" to this line.
-        return 'Counted from today: 1 is tomorrow, -1 is yesterday, 0 stays on today.'
+        return t('calendar.firstDayHelp')
       case 'days_to_show':
         // The pair, read back as a sentence. This is what makes two numbers a feature
         // rather than a puzzle: see `windowSummary`.

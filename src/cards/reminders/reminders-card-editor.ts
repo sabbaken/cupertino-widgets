@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n'
 import { mdiTune } from '@mdi/js'
 import type { PropertyValues } from 'lit'
 import { state } from 'lit/decorators.js'
@@ -132,7 +133,7 @@ class CupertinoRemindersCardEditor extends CupertinoCardEditor<RemindersCardConf
         name: 'advanced',
         type: 'expandable',
         flatten: true,
-        title: 'Advanced',
+        title: t('common.advanced'),
         iconPath: mdiTune,
         expanded: blocklistTerms(this._config?.blocklist).length > 0,
         schema: [BLOCKLIST_ROW],
@@ -175,9 +176,9 @@ class CupertinoRemindersCardEditor extends CupertinoCardEditor<RemindersCardConf
   protected override label(schema: HaFormSchema): string {
     switch (schema.name) {
       case 'entity':
-        return 'List'
+        return t('reminders.list')
       case COLOR_FIELD:
-        return 'Colour'
+        return t('reminders.colour')
       case BLOCKLIST_FIELD:
         return BLOCKLIST_LABEL
       default:
@@ -190,12 +191,12 @@ class CupertinoRemindersCardEditor extends CupertinoCardEditor<RemindersCardConf
       case 'entity':
         // Says the thing the picker cannot: that the card is a portrait of one list, and
         // that wanting two is not a limitation to work around but a second card.
-        return 'The to-do list this widget draws. Add another card for another list.'
+        return t('reminders.listHelp')
       case COLOR_FIELD:
         // The surprising half, and the half worth spending a line on: this row does not
         // edit the card. Somebody who moves the widget, or adds a second one, should not be
         // surprised that the colour came along.
-        return 'Kept on the list itself, so every widget showing it agrees.'
+        return t('reminders.colourHelp')
       case BLOCKLIST_FIELD:
         return BLOCKLIST_HELPER
       default:

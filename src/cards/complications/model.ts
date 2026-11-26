@@ -2,6 +2,7 @@
  * Complication profiles turn entity states into readings. Ranges stay in the source unit so
  * manual overrides and forecast labels use the same numbers as Home Assistant.
  */
+import { t } from '../../core/i18n'
 import { displayTimeZone, timePreferences } from '../calendar/datetime'
 import { readDevice, type BatteryDeviceConfig } from '../battery/model'
 import type { HassEntity, HomeAssistant } from '../../core/types/ha'
@@ -85,10 +86,10 @@ export type ComplicationProfile = keyof typeof profiles
 const complicationProfiles = Object.keys(profiles) as ComplicationProfile[]
 
 export const WEATHER_METRICS = {
-  temperature: 'Temperature',
-  humidity: 'Humidity',
-  uv_index: 'UV index',
-  wind_bearing: 'Wind',
+  temperature: t('complications.temperature'),
+  humidity: t('complications.humidity'),
+  uv_index: t('complications.uv'),
+  wind_bearing: t('complications.wind'),
 } as const
 
 export const weatherMetric = (row: ComplicationRow): keyof typeof WEATHER_METRICS | undefined =>
@@ -99,9 +100,9 @@ export const weatherMetric = (row: ComplicationRow): keyof typeof WEATHER_METRIC
     : undefined
 
 export const COMPLICATION_APPEARANCES = {
-  color: 'Gradient',
-  solid: 'Solid colour',
-  monochrome: 'Monochrome',
+  color: t('complications.gradient'),
+  solid: t('complications.solid'),
+  monochrome: t('complications.monochrome'),
 } as const
 
 export interface ComplicationRow extends BatteryDeviceConfig {

@@ -2,6 +2,7 @@
  * Each tile owns a single entity. The grid can change shape as a unit while the
  * keyed buttons keep their identity, even when the dashboard is resized.
  */
+import { t } from '../../core/i18n'
 import { mdiTuneVariant } from '@mdi/js'
 import { css, html, nothing, type PropertyValues } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
@@ -28,28 +29,31 @@ export const CONTROLS_CARD_TAG = 'cupertino-widgets-controls'
 
 const PICKER_CONTROLS = [
   {
-    area: 'Study',
+    area: t('controls.sampleStudy'),
     state: pickerState('light.cw_picker', 'on', {
-      friendly_name: 'Desk lamp',
+      friendly_name: t('controls.sampleLamp'),
       icon: 'mdi:desk-lamp',
       brightness: 192,
     }),
   },
   {
-    area: 'Bedroom',
-    state: pickerState('fan.cw_picker', 'off', { friendly_name: 'Fan', icon: 'mdi:fan' }),
+    area: t('controls.sampleBedroom'),
+    state: pickerState('fan.cw_picker', 'off', {
+      friendly_name: t('controls.sampleFan'),
+      icon: 'mdi:fan',
+    }),
   },
   {
-    area: 'Living room',
+    area: t('controls.sampleLiving'),
     state: pickerState('cover.cw_picker', 'open', {
-      friendly_name: 'Blinds',
+      friendly_name: t('controls.sampleBlinds'),
       icon: 'mdi:blinds-open',
     }),
   },
   {
-    area: 'Kitchen',
+    area: t('controls.sampleKitchen'),
     state: pickerState('switch.cw_picker', 'off', {
-      friendly_name: 'Coffee maker',
+      friendly_name: t('controls.sampleCoffee'),
       icon: 'mdi:coffee-maker',
     }),
   },
@@ -550,8 +554,8 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
                 <span>
                   ${
                     config.recommend_devices === false
-                      ? 'Choose entities in the card editor.'
-                      : 'No devices to recommend.'
+                      ? t('controls.choose')
+                      : t('controls.noRecommendations')
                   }
                 </span>
               </p>`
@@ -562,6 +566,6 @@ class CupertinoControlsCard extends CupertinoCard<ControlsConfig> {
 }
 
 registerCard(CONTROLS_CARD_TAG, CupertinoControlsCard, {
-  name: 'Cupertino Controls',
-  description: 'Control an ordered set of Home Assistant entities.',
+  name: t('controls.name'),
+  description: t('controls.description'),
 })

@@ -12,6 +12,7 @@
  * clock times, so nothing filters them out.
  */
 
+import { t } from '../../core/i18n'
 import type { CalendarItem } from './model'
 
 const WORK = 'var(--cw-orange)'
@@ -114,7 +115,7 @@ const withIds = (scenario: string, drafts: Draft[]): CalendarItem[] =>
 const laterDays = (now: Date, offset = 1): Draft[] => [
   {
     kind: 'event',
-    title: 'Market run',
+    title: t('sample.market'),
     location: 'Podwale 5, Warsawa',
     start: on(now, offset, 10),
     end: on(now, offset, 12),
@@ -122,19 +123,19 @@ const laterDays = (now: Date, offset = 1): Draft[] => [
   },
   {
     kind: 'event',
-    title: 'Coffee with Marta',
+    title: t('sample.coffee'),
     start: on(now, offset, 13),
     end: on(now, offset, 14),
     color: HOME,
   },
   {
     kind: 'event',
-    title: 'Training',
+    title: t('sample.training'),
     start: on(now, offset, 18, 15),
     end: on(now, offset, 19, 15),
     color: SPORT,
   },
-  { kind: 'reminder', title: 'Renew library card', start: on(now, offset + 2, 9), color: LIST },
+  { kind: 'reminder', title: t('sample.library'), start: on(now, offset + 2, 9), color: LIST },
 ]
 
 const scenarios: Record<string, (now: Date) => Draft[]> = {
@@ -142,16 +143,22 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
   default: now => {
     const base = soon(now)
     return [
-      { kind: 'event', title: 'Design review', start: base, end: after(base, 1), color: WORK },
+      { kind: 'event', title: t('sample.design'), start: base, end: after(base, 1), color: WORK },
       {
         kind: 'event',
-        title: 'Lunch with Anna',
+        title: t('sample.lunch'),
         location: 'Gdańska 12, Warsawa',
         start: after(base, 2),
         end: after(base, 3),
         color: HOME,
       },
-      { kind: 'event', title: 'Dentist', start: after(base, 4), end: after(base, 5), color: HOME },
+      {
+        kind: 'event',
+        title: t('sample.dentist'),
+        start: after(base, 4),
+        end: after(base, 5),
+        color: HOME,
+      },
       ...laterDays(now),
     ]
   },
@@ -164,10 +171,16 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
    * Events Today`.
    */
   'today-done': now => [
-    { kind: 'event', title: 'Standup', start: earlier(now, 4), end: earlier(now, 3), color: WORK },
     {
       kind: 'event',
-      title: 'Design review',
+      title: t('sample.standup'),
+      start: earlier(now, 4),
+      end: earlier(now, 3),
+      color: WORK,
+    },
+    {
+      kind: 'event',
+      title: t('sample.design'),
       location: 'Długa 36, Warsawa',
       start: earlier(now, 2),
       end: earlier(now, 1),
@@ -182,7 +195,7 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
     return [
       {
         kind: 'event',
-        title: 'Design review',
+        title: t('sample.design'),
         location: 'Długa 36, Warsawa',
         start: base,
         end: after(base, 1),
@@ -198,13 +211,19 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
     return [
       {
         kind: 'event',
-        title: 'Design review',
+        title: t('sample.design'),
         location: 'Długa 36, Warsawa',
         start: base,
         end: after(base, 1),
         color: WORK,
       },
-      { kind: 'event', title: 'Standup', start: after(base, 2), end: after(base, 3), color: WORK },
+      {
+        kind: 'event',
+        title: t('sample.standup'),
+        start: after(base, 2),
+        end: after(base, 3),
+        color: WORK,
+      },
       ...laterDays(now),
     ]
   },
@@ -213,9 +232,21 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
   'three-events': now => {
     const base = soon(now)
     return [
-      { kind: 'event', title: 'Design review', start: base, end: after(base, 1), color: WORK },
-      { kind: 'event', title: 'Standup', start: after(base, 2), end: after(base, 3), color: WORK },
-      { kind: 'event', title: 'Retro', start: after(base, 4), end: after(base, 5), color: WORK },
+      { kind: 'event', title: t('sample.design'), start: base, end: after(base, 1), color: WORK },
+      {
+        kind: 'event',
+        title: t('sample.standup'),
+        start: after(base, 2),
+        end: after(base, 3),
+        color: WORK,
+      },
+      {
+        kind: 'event',
+        title: t('sample.retro'),
+        start: after(base, 4),
+        end: after(base, 5),
+        color: WORK,
+      },
       ...laterDays(now),
     ]
   },
@@ -230,7 +261,7 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
     return [
       {
         kind: 'event',
-        title: 'Design review',
+        title: t('sample.design'),
         location: 'Długa 36, Warsawa',
         start: base,
         end: after(base, 1),
@@ -238,23 +269,23 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
       },
       {
         kind: 'event',
-        title: 'Sprint planning',
+        title: t('sample.planning'),
         location: 'Focha 4, Warsawa',
         start: after(base, 2),
         end: after(base, 3),
         color: WORK,
       },
-      { kind: 'reminder', title: 'Pick up dry cleaning', start: on(now, 1, 10, 30), color: LIST },
+      { kind: 'reminder', title: t('sample.dryCleaning'), start: on(now, 1, 10, 30), color: LIST },
       {
         kind: 'event',
-        title: 'Language class',
+        title: t('sample.language'),
         start: on(now, 1, 12),
         end: on(now, 1, 13),
         color: WORK,
       },
       {
         kind: 'event',
-        title: 'Training',
+        title: t('sample.training'),
         start: on(now, 1, 18, 15),
         end: on(now, 1, 19, 15),
         color: SPORT,
@@ -272,20 +303,20 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
     return [
       {
         kind: 'reminder',
-        title: 'Book the car service',
+        title: t('sample.car'),
         start: midnight(now, 0),
         allDay: true,
         color: LIST,
       },
-      { kind: 'reminder', title: 'Pick up dry cleaning', start: base, color: LIST },
+      { kind: 'reminder', title: t('sample.dryCleaning'), start: base, color: LIST },
       {
         kind: 'event',
-        title: 'Language class',
+        title: t('sample.language'),
         start: after(base, 2),
         end: after(base, 3),
         color: WORK,
       },
-      { kind: 'reminder', title: 'Water the plants', start: after(base, 5), color: LIST },
+      { kind: 'reminder', title: t('sample.plants'), start: after(base, 5), color: LIST },
       ...laterDays(now),
     ]
   },
@@ -299,26 +330,32 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
   'all-day': now => {
     const base = soon(now)
     return [
-      { kind: 'event', title: 'Poznań trip', allDay: true, start: midnight(now, 0), color: HOME },
       {
         kind: 'event',
-        title: 'Train to Poznań',
+        title: t('sample.trip'),
+        allDay: true,
+        start: midnight(now, 0),
+        color: HOME,
+      },
+      {
+        kind: 'event',
+        title: t('sample.train'),
         location: 'Warsawa Główna',
         start: base,
         end: after(base, 1),
         color: HOME,
       },
-      { kind: 'reminder', title: 'Pick up dry cleaning', start: on(now, 1, 10, 30), color: LIST },
+      { kind: 'reminder', title: t('sample.dryCleaning'), start: on(now, 1, 10, 30), color: LIST },
       {
         kind: 'event',
-        title: 'Language class',
+        title: t('sample.language'),
         start: on(now, 1, 12),
         end: on(now, 1, 13),
         color: WORK,
       },
       {
         kind: 'event',
-        title: 'Training',
+        title: t('sample.training'),
         start: on(now, 1, 18, 15),
         end: on(now, 1, 19, 15),
         color: SPORT,
@@ -330,9 +367,21 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
   'all-day-busy': now => {
     const base = soon(now)
     return [
-      { kind: 'event', title: 'Poznań trip', allDay: true, start: midnight(now, 0), color: HOME },
-      { kind: 'event', title: 'Standup', start: base, end: after(base, 1), color: WORK },
-      { kind: 'event', title: 'Retro', start: after(base, 3), end: after(base, 4), color: WORK },
+      {
+        kind: 'event',
+        title: t('sample.trip'),
+        allDay: true,
+        start: midnight(now, 0),
+        color: HOME,
+      },
+      { kind: 'event', title: t('sample.standup'), start: base, end: after(base, 1), color: WORK },
+      {
+        kind: 'event',
+        title: t('sample.retro'),
+        start: after(base, 3),
+        end: after(base, 4),
+        color: WORK,
+      },
       ...laterDays(now),
     ]
   },
@@ -351,14 +400,14 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
     return [
       {
         kind: 'event',
-        title: 'Sprint planning',
+        title: t('sample.planning'),
         start: on(now, -1, 9),
         end: on(now, -1, 10, 30),
         color: WORK,
       },
       {
         kind: 'event',
-        title: 'Physio',
+        title: t('sample.physio'),
         location: 'Gdańska 45, Warsawa',
         start: on(now, -1, 17, 30),
         end: on(now, -1, 18, 30),
@@ -366,12 +415,12 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
       },
       {
         kind: 'event',
-        title: 'Standup',
+        title: t('sample.standup'),
         start: earlier(now, 3),
         end: earlier(now, 2),
         color: WORK,
       },
-      { kind: 'event', title: 'Design review', start: base, end: after(base, 1), color: WORK },
+      { kind: 'event', title: t('sample.design'), start: base, end: after(base, 1), color: WORK },
       ...laterDays(now),
     ]
   },
@@ -380,7 +429,7 @@ const scenarios: Record<string, (now: Date) => Draft[]> = {
   'skip-empty-day': now => {
     const base = soon(now)
     return [
-      { kind: 'event', title: 'Design review', start: base, end: after(base, 1), color: WORK },
+      { kind: 'event', title: t('sample.design'), start: base, end: after(base, 1), color: WORK },
       ...laterDays(now, 2),
     ]
   },

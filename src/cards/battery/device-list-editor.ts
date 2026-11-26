@@ -41,6 +41,7 @@
  * which is also the thing that causes the definition to arrive.
  */
 
+import { t } from '../../core/i18n'
 import { mdiDrag, mdiTrashCanOutline } from '@mdi/js'
 import { LitElement, css, html, nothing, type CSSResultGroup, type TemplateResult } from 'lit'
 import { property, state } from 'lit/decorators.js'
@@ -117,30 +118,21 @@ const deviceSchema = (
 ]
 
 const LABELS: Record<string, string> = {
-  entity: 'Battery sensor',
-  icon: 'Icon',
-  charging_entity: 'Charging sensor',
-  name: 'Name',
+  entity: t('battery.sensor'),
+  icon: t('common.icon'),
+  charging_entity: t('common.chargingSensor'),
+  name: t('common.entityName'),
 }
 
-/**
- * Not localised, like the rest of the library's own words: Home Assistant has a translated
- * string for a list of entities and none for any of this.
- */
 const HELPERS: Record<string, string> = {
-  icon: 'Says which device this is; the ring already says the level.',
-  charging_entity:
-    'A binary sensor that is on while this device is charging. Only needed when the ' +
-    'battery sensor does not report it itself.',
-  name: 'The tooltip and the screen-reader label. The card never draws it.',
+  icon: t('battery.iconHelp'),
+  charging_entity: t('battery.chargingHelp'),
+  name: t('battery.nameHelp'),
 }
 
-const ADD_LABEL = 'Add a device'
+const ADD_LABEL = t('battery.add')
 
-const ADD_HELPER =
-  'Pick a battery sensor and it joins the list. One already in the list is not offered ' +
-  'again, and a sensor published without the battery device class is not offered at all; ' +
-  'that one still works if you add it in YAML.'
+const ADD_HELPER = t('battery.addHelp')
 
 class CupertinoBatteryDevices extends LitElement {
   /**
@@ -259,7 +251,7 @@ class CupertinoBatteryDevices extends LitElement {
   protected readonly allowDuplicates: boolean = false
   protected readonly addLabel: string = ADD_LABEL
   protected readonly addHelper: string = ADD_HELPER
-  protected readonly emptyLabel: string = 'No devices yet. The card will say so too.'
+  protected readonly emptyLabel: string = t('battery.editorEmpty')
 
   protected schema = deviceSchema
   protected normaliseRows = deviceRows
@@ -433,7 +425,7 @@ class CupertinoBatteryDevices extends LitElement {
             slot="icons"
             class="remove"
             .path=${mdiTrashCanOutline}
-            .label=${`Remove ${device.name}`}
+            .label=${t('common.remove', { name: device.name })}
             @click=${(event: Event) => this._remove(event, index)}
           ></ha-icon-button>
           <ha-form

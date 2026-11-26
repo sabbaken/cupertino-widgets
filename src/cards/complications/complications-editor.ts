@@ -1,4 +1,5 @@
 /** The Complications editor uses the battery editor's sortable panels. */
+import { t } from '../../core/i18n'
 import { html, nothing, type TemplateResult } from 'lit'
 import { property } from 'lit/decorators.js'
 import { CupertinoCardEditor } from '../../core/card-editor'
@@ -26,7 +27,11 @@ const select = (name: string, options: Record<string, string>): HaFormSchema => 
     },
   },
 })
-const shapeNames = { ring: 'Ring', dial: 'Dial', disc: 'Disc' }
+const shapeNames = {
+  ring: t('complications.ring'),
+  dial: t('complications.dial'),
+  disc: t('complications.disc'),
+}
 
 type ComplicationAppearance = NonNullable<ComplicationRow['color_mode']>
 
@@ -37,25 +42,25 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
     domain: ['sensor', 'number', 'input_number', 'weather', 'sun'],
   }
   protected override readonly allowDuplicates = true
-  protected override readonly addLabel = 'Add a complication'
+  protected override readonly addLabel = t('complications.add')
   protected override readonly addHelper = ''
-  protected override readonly emptyLabel = 'Choose an entity to add a complication.'
+  protected override readonly emptyLabel = t('complications.addHelp')
   protected override labels = {
-    entity: 'Entity',
-    weather_metric: 'Weather reading',
-    profile: 'Profile',
-    shape: 'Shape',
-    color_mode: 'Appearance',
-    caption: 'Caption',
-    name: 'Name',
-    icon: 'Icon',
-    icon_position: 'Icon position',
-    mark: 'Indicator',
-    min: 'Minimum',
-    max: 'Maximum',
-    charging_entity: 'Charging sensor',
-    show_percentage: 'Show percentage',
-    sun_event: 'Sun event',
+    entity: t('complications.entity'),
+    weather_metric: t('complications.weatherReading'),
+    profile: t('complications.profile'),
+    shape: t('complications.shape'),
+    color_mode: t('complications.appearance'),
+    caption: t('complications.caption'),
+    name: t('common.entityName'),
+    icon: t('common.icon'),
+    icon_position: t('complications.iconPosition'),
+    mark: t('complications.indicator'),
+    min: t('complications.min'),
+    max: t('complications.max'),
+    charging_entity: t('common.chargingSensor'),
+    show_percentage: t('complications.showPercentage'),
+    sun_event: t('complications.sunEvent'),
   }
   protected override helpers = {}
   protected override normaliseRows = (rows: readonly unknown[]) =>
@@ -99,21 +104,26 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
         ? [select('weather_metric', WEATHER_METRICS)]
         : [
             select('profile', {
-              auto: 'Auto',
-              battery: 'Battery',
-              temperature: 'Temperature',
-              humidity: 'Humidity',
+              auto: t('common.auto'),
+              battery: t('complications.battery'),
+              temperature: t('complications.temperature'),
+              humidity: t('complications.humidity'),
               co2: 'CO₂',
-              aqi: 'AQI (unclassified)',
-              aqi_us: 'AQI (US EPA)',
-              sun: 'Date and time',
-              generic: 'Generic',
-              uv_index: 'UV index',
+              aqi: t('complications.aqi'),
+              aqi_us: t('complications.aqiUs'),
+              sun: t('complications.dateTime'),
+              generic: t('complications.generic'),
+              uv_index: t('complications.uv'),
             }),
           ]),
       ...(complication.metric === 'wind_bearing'
         ? []
-        : [select('shape', { auto: `Auto (${shapeNames[auto.form]})`, ...shapeNames })]),
+        : [
+            select('shape', {
+              auto: t('complications.autoShape', { shape: shapeNames[auto.form] }),
+              ...shapeNames,
+            }),
+          ]),
       select('color_mode', COMPLICATION_APPEARANCES),
       { name: 'name', selector: { text: { placeholder: complication.name } } },
       {
@@ -127,13 +137,19 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
         selector: { icon: { ...(complication.glyph ? { placeholder: complication.glyph } : {}) } },
       },
       select('icon_position', {
-        auto: 'Auto',
-        top: 'Above the reading',
-        bottom: 'Below the reading',
-        hidden: 'Hidden',
+        auto: t('common.auto'),
+        top: t('complications.above'),
+        bottom: t('complications.below'),
+        hidden: t('complications.hidden'),
       }),
       ...(numeric && track && !complication.hasPalette
-        ? [select('mark', { auto: 'Auto', arc: 'Fill', dot: 'Dot' })]
+        ? [
+            select('mark', {
+              auto: t('common.auto'),
+              arc: t('complications.fill'),
+              dot: t('complications.dot'),
+            }),
+          ]
         : []),
       ...(numeric && complication.metric !== 'wind_bearing'
         ? ['min', 'max'].map(name => ({
@@ -151,7 +167,13 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
           ]
         : []),
       ...(complication.key === 'sun' && row.entity.startsWith('sun.')
-        ? [select('sun_event', { auto: 'Auto', sunset: 'Sunset', sunrise: 'Sunrise' })]
+        ? [
+            select('sun_event', {
+              auto: t('common.auto'),
+              sunset: t('complications.sunset'),
+              sunrise: t('complications.sunrise'),
+            }),
+          ]
         : []),
     ]
   }

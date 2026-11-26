@@ -2,6 +2,7 @@
  * The service catalogue determines whether a tile can toggle. Reading the
  * catalogue also covers integrations that expose a toggle without an on/off state.
  */
+import { t } from '../../core/i18n'
 import type { CupertinoCardConfig } from '../../core/base-card'
 import type { HomeAssistant, HassEntity } from '../../core/types/ha'
 import type { ControlsDensity, ControlsFormat } from './layout'
@@ -57,7 +58,7 @@ export const controlsActive = (entity: HassEntity): boolean => {
 
 export const controlsState = (hass: HomeAssistant, entity?: HassEntity): string => {
   if (!entity) {
-    return hass.localize('state.default.unavailable') || 'Unavailable'
+    return hass.localize('state.default.unavailable') || t('common.unavailable')
   }
   const domain = entity.entity_id.split('.')[0]
   const {

@@ -1,4 +1,5 @@
 /** The clock adds a weather selector to the same sortable complication editor. */
+import { t } from '../../core/i18n'
 import { mdiTune } from '@mdi/js'
 import { defineElement } from '../../core/register'
 import type { HaFormSchema } from '../../core/types/ha'
@@ -45,14 +46,17 @@ class CupertinoClockEditor extends CupertinoComplicationsEditor<ClockCardConfig>
     }))
     const savedFont = this._config?.font
     if (savedFont && !options.some(option => option.value === savedFont)) {
-      options.push({ value: savedFont, label: savedFont === 'serif' ? 'Serif' : savedFont })
+      options.push({
+        value: savedFont,
+        label: savedFont === 'serif' ? t('clock.serif') : savedFont,
+      })
     }
     return [
       {
         name: 'advanced',
         type: 'expandable',
         flatten: true,
-        title: 'Advanced',
+        title: t('common.advanced'),
         iconPath: mdiTune,
         schema: [
           { name: 'font', selector: { select: { mode: 'dropdown', options } } },
@@ -84,24 +88,24 @@ class CupertinoClockEditor extends CupertinoComplicationsEditor<ClockCardConfig>
   }
 
   protected override helper(schema: HaFormSchema): string | undefined {
-    if (schema.name === 'tracking') return 'Space between digits in thousandths of an em.'
+    if (schema.name === 'tracking') return t('clock.trackingHelp')
     return super.helper(schema)
   }
 
   protected override label(schema: HaFormSchema): string {
     switch (schema.name) {
       case 'font':
-        return 'Time font'
+        return t('clock.timeFont')
       case 'tracking':
-        return 'Tracking'
+        return t('clock.tracking')
       case 'font_weight':
-        return 'Font weight'
+        return t('clock.weight')
       case 'show_date':
-        return 'Show date'
+        return t('clock.showDate')
       case 'weather_entity':
-        return 'Weather'
+        return t('clock.weather')
       case 'show_background':
-        return 'Show card background'
+        return t('clock.showBackground')
       default:
         return super.label(schema)
     }

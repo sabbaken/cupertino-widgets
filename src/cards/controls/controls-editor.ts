@@ -2,6 +2,7 @@
  * Controls uses the same ordered entity selector as Home Assistant. Its value is
  * already the list of IDs the card needs.
  */
+import { t } from '../../core/i18n'
 import { mdiTune } from '@mdi/js'
 
 import { CupertinoCardEditor } from '../../core/card-editor'
@@ -32,7 +33,7 @@ const advanced: HaFormSchema = {
   name: 'advanced',
   type: 'expandable',
   flatten: true,
-  title: 'Advanced',
+  title: t('common.advanced'),
   iconPath: mdiTune,
   schema: [
     {
@@ -41,9 +42,9 @@ const advanced: HaFormSchema = {
         select: {
           mode: 'list',
           options: [
-            { value: 'auto', label: 'Auto' },
-            { value: 'rectangle', label: 'Side by side' },
-            { value: 'square', label: 'Stacked' },
+            { value: 'auto', label: t('common.auto') },
+            { value: 'rectangle', label: t('controls.sideBySide') },
+            { value: 'square', label: t('controls.stacked') },
           ],
         },
       },
@@ -54,14 +55,14 @@ const advanced: HaFormSchema = {
 }
 
 const labels: Record<string, string> = {
-  entities: 'Entities',
-  recommend_devices: 'Recommend devices',
-  recommendation_areas: 'Recommendation areas',
-  format: 'Tile format',
-  tile_columns: 'Columns',
-  tile_rows: 'Rows',
-  show_name: 'Show entity name',
-  show_area: 'Show area',
+  entities: t('controls.entities'),
+  recommend_devices: t('controls.recommend'),
+  recommendation_areas: t('controls.areas'),
+  format: t('controls.format'),
+  tile_columns: t('controls.columns'),
+  tile_rows: t('controls.rows'),
+  show_name: t('controls.showName'),
+  show_area: t('controls.showArea'),
 }
 
 class CupertinoControlsEditor extends CupertinoCardEditor<ControlsConfig> {
@@ -84,21 +85,15 @@ class CupertinoControlsEditor extends CupertinoCardEditor<ControlsConfig> {
   }
 
   protected override label(schema: HaFormSchema): string {
-    if (this.hass?.language.startsWith('ru')) {
-      if (schema.name === 'recommend_devices') return 'Рекомендовать устройства'
-      if (schema.name === 'recommendation_areas') return 'Комнаты для рекомендаций'
-    }
     return labels[schema.name] ?? super.label(schema)
   }
 
   protected override helper(schema: HaFormSchema): string | undefined {
     if (schema.name === 'recommendation_areas') {
-      return this.hass?.language.startsWith('ru')
-        ? 'Пустое поле означает весь дом.'
-        : 'Leave blank for the entire home.'
+      return t('controls.areasHelp')
     }
     if (schema.name === 'tile_columns' || schema.name === 'tile_rows') {
-      return 'Leave blank to fit automatically.'
+      return t('controls.fitHelp')
     }
     const config = this._config
     if (schema.name !== 'entities' || !config) return super.helper(schema)
@@ -116,8 +111,8 @@ class CupertinoControlsEditor extends CupertinoCardEditor<ControlsConfig> {
       config.format ?? 'auto',
       config,
     )
-    const hint = `Estimated visible tiles at the configured Layout and Scale: ${capacity}.`
-    return ids.length > capacity ? `${hint} Pinned tiles beyond this limit are hidden.` : hint
+    const hint = t('controls.capacity', { capacity })
+    return ids.length > capacity ? t('controls.hidden', { hint }) : hint
   }
 }
 

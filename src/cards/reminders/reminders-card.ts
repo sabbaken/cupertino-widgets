@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n'
 import { mdiCheck } from '@mdi/js'
 import {
   css,
@@ -61,9 +62,9 @@ export interface RemindersCardConfig extends CupertinoCardConfig {
   blocklist?: string
 }
 
-const NO_LIST = 'No List'
-const NO_REMINDERS = 'No Reminders'
-const ALL_COMPLETE = 'All reminders complete'
+const NO_LIST = t('reminders.noList')
+const NO_REMINDERS = t('reminders.empty')
+const ALL_COMPLETE = t('reminders.complete')
 
 /**
  * The tick inside a completed row's circle.
@@ -586,7 +587,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
         class="badge cw-pressable"
         role="button"
         tabindex="0"
-        aria-label=${`Open ${name}`}
+        aria-label=${t('common.open', { name })}
         @click=${this._openList}
         @keydown=${this._openKey}
       >
@@ -670,7 +671,7 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
     if (items !== undefined && list.rows.length === 0) {
       emptyMessage = list.allComplete ? ALL_COMPLETE : NO_REMINDERS
     }
-    const name = sample ? 'Errands' : listName(this.hass, entityId!)
+    const name = sample ? t('reminders.sampleList') : listName(this.hass, entityId!)
     const badge = this._renderBadge(
       name,
       sample ? 'mdi:clipboard-list' : listIcon(this.hass, entityId!),
@@ -702,15 +703,15 @@ class CupertinoRemindersCard extends CupertinoCard<RemindersCardConfig> {
 }
 
 const PICKER_ITEMS = readItems([
-  { summary: 'Pick up a parcel' },
-  { summary: 'Water the plants' },
-  { summary: 'Book a table' },
-  { summary: 'Return library books' },
+  { summary: t('reminders.sampleParcel') },
+  { summary: t('reminders.samplePlants') },
+  { summary: t('reminders.sampleTable') },
+  { summary: t('reminders.sampleBooks') },
 ])
 
 registerCard(REMINDERS_CARD_TAG, CupertinoRemindersCard, {
-  name: 'Cupertino Reminders',
-  description: 'A Cupertino-style widget for one of your to-do lists.',
+  name: t('reminders.name'),
+  description: t('reminders.description'),
 })
 
 export { CupertinoRemindersCard }

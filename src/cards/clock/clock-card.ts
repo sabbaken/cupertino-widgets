@@ -1,4 +1,5 @@
 /** The clock fits the date, time and one row of complications into the measured box. */
+import { cwBrowserLocale, t } from '../../core/i18n'
 import * as mdi from '@mdi/js'
 import { css, html, nothing, type TemplateResult } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
@@ -39,6 +40,25 @@ const weatherIcons: Record<string, string> = {
   sunny: mdi.mdiWeatherSunny,
   windy: mdi.mdiWeatherWindy,
   'windy-variant': mdi.mdiWeatherWindyVariant,
+}
+
+const weatherLabels: Record<string, string> = {
+  'clear-night': t('weather.clear-night'),
+  cloudy: t('weather.cloudy'),
+  exceptional: t('weather.exceptional'),
+  fog: t('weather.fog'),
+  hail: t('weather.hail'),
+  lightning: t('weather.lightning'),
+  'lightning-rainy': t('weather.lightning-rainy'),
+  partlycloudy: t('weather.partlycloudy'),
+  pouring: t('weather.pouring'),
+  rainy: t('weather.rainy'),
+  snowy: t('weather.snowy'),
+  'snowy-rainy': t('weather.snowy-rainy'),
+  sunny: t('weather.sunny'),
+  windy: t('weather.windy'),
+  'windy-variant': t('weather.windy-variant'),
+  unknown: t('weather.unknown'),
 }
 
 class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> {
@@ -147,8 +167,9 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
     const icon = Object.hasOwn(weatherIcons, state.state)
       ? weatherIcons[state.state]
       : mdi.mdiWeatherCloudyAlert
-    const label =
-      state.state === 'partlycloudy' ? 'Partly cloudy' : state.state.replaceAll('-', ' ')
+    const label = Object.hasOwn(weatherLabels, state.state)
+      ? weatherLabels[state.state]
+      : weatherLabels.unknown
     const temperature = state.attributes.temperature
     return html`<span class="weather">
       <svg viewBox="0 0 24 24" role="img" aria-label=${label}><path d=${icon}></path></svg>
@@ -162,7 +183,8 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
 
   protected override render(): TemplateResult {
     const now = new Date()
-    const { locale, hour12 } = timePreferences(this.hass?.locale)
+    const { locale: profileLocale, hour12 } = timePreferences(this.hass?.locale)
+    const locale = cwBrowserLocale ?? profileLocale
     const timeZone = displayTimeZone(this.hass)
     const weather = this._weather()
     const date =
@@ -257,6 +279,6 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
 }
 
 registerCard(CLOCK_CARD_TAG, CupertinoClockCard, {
-  name: 'Cupertino Clock',
-  description: 'Show the time with optional weather and up to four complications.',
+  name: t('clock.name'),
+  description: t('clock.description'),
 })

@@ -4,6 +4,7 @@
  * puts both ends of an event beside its title and location rather than below them.
  */
 
+import { cwBrowserLocale, t } from '../../core/i18n'
 import { mdiCalendarMonth } from '@mdi/js'
 import {
   css,
@@ -807,7 +808,11 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
     if (!this._config) return nothing
 
     const now = this._now
-    const { locale, hour12 } = timePreferences(this.hass?.locale, this._config.time_format)
+    const { locale: profileLocale, hour12 } = timePreferences(
+      this.hass?.locale,
+      this._config.time_format,
+    )
+    const locale = cwBrowserLocale ?? profileLocale
     const ctx: FormatContext = {
       locale,
       timeZone: this.inCardPicker ? undefined : this._timeZone,
@@ -884,8 +889,8 @@ class CupertinoCalendarCard extends CupertinoCard<CalendarCardConfig> {
 }
 
 registerCard(CALENDAR_CARD_TAG, CupertinoCalendarCard, {
-  name: 'Cupertino Calendar',
-  description: 'A Cupertino-style calendar widget for your dashboard.',
+  name: t('calendar.name'),
+  description: t('calendar.description'),
 })
 
 export { CupertinoCalendarCard }

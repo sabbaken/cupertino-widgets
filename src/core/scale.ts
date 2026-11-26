@@ -1,5 +1,3 @@
-import type { HaFormSchema } from './types/ha'
-
 /**
  * `scale`: how big the widget is drawn, as a percentage of the size it was designed at.
  *
@@ -34,6 +32,8 @@ import type { HaFormSchema } from './types/ha'
  * change what is drawn without changing what was budgeted, and the card would clip its
  * last row with no way of knowing.
  */
+import { t } from './i18n'
+import type { HaFormSchema } from './types/ha'
 
 /** The config key, and the name of the row in every card's editor. */
 export const SCALE_FIELD = 'scale'
@@ -117,9 +117,6 @@ export const SCALE_ROW: HaFormSchema = {
   },
 }
 
-/** Not localised, like the rest of the editor's own words; see the calendar's editor. */
-export const SCALE_LABEL = 'Scale'
+export const SCALE_LABEL = t('common.scale')
 
-export const SCALE_HELPER =
-  'Draws the whole widget larger or smaller: type, rows and spacing together. ' +
-  'Fewer rows fit as it grows, so give a scaled-up card more height in the Layout tab.'
+export const SCALE_HELPER = t('common.scaleHelp')

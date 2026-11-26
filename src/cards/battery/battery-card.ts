@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n'
 import { css, html, nothing, type CSSResultGroup, type TemplateResult } from 'lit'
 
 import { CupertinoCard, type CupertinoCardConfig } from '../../core/base-card'
@@ -30,7 +31,7 @@ export interface BatteryCardConfig extends CupertinoCardConfig {
  * Not localised, like the rest of the library's own words: Home Assistant has no string
  * for it. The widget being copied says exactly this.
  */
-const NO_DEVICES = 'No Devices'
+const NO_DEVICES = t('battery.empty')
 
 /**
  * An em dash for a level that cannot be read, and it is doing a job the ring cannot.
@@ -238,7 +239,7 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
         role="button"
         tabindex="0"
         title=${device.name}
-        aria-label=${`${device.name}: ${unknown ? 'unavailable' : reading}`}
+        aria-label=${`${device.name}: ${unknown ? t('battery.unavailable') : reading}`}
         @click=${() => this._openMoreInfo(device.id)}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key !== 'Enter' && event.key !== ' ') return
@@ -259,9 +260,27 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
 
     const devices = this.inCardPicker
       ? [
-          { id: 'phone', name: 'Phone', icon: 'mdi:cellphone', level: 82, charging: true },
-          { id: 'watch', name: 'Watch', icon: 'mdi:watch', level: 64, charging: false },
-          { id: 'earbuds', name: 'Earbuds', icon: 'mdi:earbuds', level: 43, charging: false },
+          {
+            id: 'phone',
+            name: t('common.samplePhone'),
+            icon: 'mdi:cellphone',
+            level: 82,
+            charging: true,
+          },
+          {
+            id: 'watch',
+            name: t('battery.sampleWatch'),
+            icon: 'mdi:watch',
+            level: 64,
+            charging: false,
+          },
+          {
+            id: 'earbuds',
+            name: t('battery.sampleEarbuds'),
+            icon: 'mdi:earbuds',
+            level: 43,
+            charging: false,
+          },
         ]
       : readDevices(this.hass, this._config.entities)
 
@@ -311,8 +330,8 @@ class CupertinoBatteryCard extends CupertinoCard<BatteryCardConfig> {
 }
 
 registerCard(BATTERY_CARD_TAG, CupertinoBatteryCard, {
-  name: 'Cupertino Batteries',
-  description: 'A Cupertino-style battery widget for the devices you care about.',
+  name: t('battery.name'),
+  description: t('battery.description'),
 })
 
 export { CupertinoBatteryCard }

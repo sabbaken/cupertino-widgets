@@ -13,6 +13,7 @@
  * carries as a flag.
  */
 
+import { cwLanguage, t } from '../../core/i18n'
 import { dayNumber, dayStart } from './datetime'
 import type { DayWindow } from './flow'
 
@@ -178,27 +179,26 @@ export const dateHeading = (date: Date, ctx: FormatContext): string => {
   return `${weekday}, ${dayMonth}`.toLocaleUpperCase(locale)
 }
 
+const eventPlural = new Intl.PluralRules(cwLanguage)
+
 /**
  * The tail indicator: `1 more event`, `2 more events`.
  *
- * English-only, like `No Events Today`: Home Assistant has no string for either and the
- * widget being copied says exactly this. Kept in one place because one open question ends
- * here: whether a tail of nothing but reminders should read `2 more items`. It is always
- * `events`, uglier though that is when everything hidden is a to-do.
+ * A tail of reminders also uses the event count, since both kinds share the same flow.
  *
  * What the number means is settled and lives in `addMoreRow`: the rest of the one day the
  * row is drawn inside, never the rest of the loaded window.
  */
-export const moreLabel = (count: number): string =>
-  `${count} more ${count === 1 ? 'event' : 'events'}`
+export const moreLabel = (count: number): string => {
+  const category = eventPlural.select(count)
+  const form = category === 'zero' || category === 'two' ? 'other' : category
+  return t(`calendar.more.${form}`, { count })
+}
 
 /**
  * The line a day with nothing on it shows instead of a flow.
  *
- * English-only, like `moreLabel`: Home Assistant has no string for any of these and the
- * widget being copied says exactly the first two. Four rather than two, because the day
- * the card is anchored on need not be today any more, and `No Events Today` under a date
- * block reading tomorrow would be the card contradicting itself in two lines.
+ * The empty line follows the anchor day, which can differ from today.
  *
  * `done` only ever arrives true for today, and the distinction is only ever worth drawing
  * there: yesterday is finished by definition, so `No More Events Yesterday` would be
@@ -206,10 +206,10 @@ export const moreLabel = (count: number): string =>
  * block above it having already named the day better than a relative word could.
  */
 export const emptyLabel = (offsetFromToday: number, done: boolean): string => {
-  if (offsetFromToday === 0) return done ? 'No More Events Today' : 'No Events Today'
-  if (offsetFromToday === 1) return 'No Events Tomorrow'
-  if (offsetFromToday === -1) return 'No Events Yesterday'
-  return 'No Events'
+  if (offsetFromToday === 0) return done ? t('calendar.noMoreToday') : t('calendar.emptyToday')
+  if (offsetFromToday === 1) return t('calendar.emptyTomorrow')
+  if (offsetFromToday === -1) return t('calendar.emptyYesterday')
+  return t('calendar.empty')
 }
 
 /**
@@ -242,18 +242,16 @@ const dayPhrase = (offsetFromToday: number, now: Date, ctx: FormatContext): stri
  * back without doing the arithmetic in their head, which is the whole reason the pair is
  * two plain numbers rather than a dropdown of presets: the presets would have to stop
  * somewhere, and a sentence does not.
- *
- * English scaffolding around a localised day, the same mongrel `moreLabel` is: there is no
- * translation layer here yet, and the day is the half of the sentence that carries it.
+
  */
 export const windowSummary = (window: DayWindow, now: Date, ctx: FormatContext): string => {
   const { offsetDays, spanDays } = window
   const day = dayPhrase(offsetDays, now, ctx)
   const first = day.charAt(0).toLocaleUpperCase(ctx.locale) + day.slice(1)
 
-  if (spanDays <= 1) return `${first} only.`
-  if (spanDays === 2) return `${first} and the day after.`
-  return `${first} and the ${spanDays - 1} days after it.`
+  if (spanDays <= 1) return t('calendar.windowDay', { first })
+  if (spanDays === 2) return t('calendar.windowTwo', { first })
+  return t('calendar.windowMany', { first, count: spanDays - 1 })
 }
 
 /**

@@ -7,14 +7,12 @@
  * before the flow or count means a hidden row costs neither space nor an empty-day claim.
  */
 
+import { t } from './i18n'
 import type { HaFormSchema } from './types/ha'
 
 export const BLOCKLIST_FIELD = 'blocklist'
-export const BLOCKLIST_LABEL = 'Block list'
-export const BLOCKLIST_HELPER =
-  'Enter words or phrases separated by commas, e.g. lunch, school run. ' +
-  'Titles containing any entry are hidden in this card only, ignoring case. ' +
-  'Leave empty to show everything.'
+export const BLOCKLIST_LABEL = t('common.blocklist')
+export const BLOCKLIST_HELPER = t('common.blocklistHelp')
 
 export const BLOCKLIST_ROW: HaFormSchema = {
   name: BLOCKLIST_FIELD,

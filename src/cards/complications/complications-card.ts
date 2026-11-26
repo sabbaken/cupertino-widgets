@@ -1,4 +1,5 @@
 /** The standalone complications card arranges readings in a grid fitted to its box. */
+import { t } from '../../core/i18n'
 import { css, html, type TemplateResult } from 'lit'
 import { styleMap } from 'lit/directives/style-map.js'
 import { pickerState } from '../../core/picker-state'
@@ -15,17 +16,17 @@ export type { ComplicationsCardConfig } from './complication-card-base'
 
 const PICKER_STATES = [
   pickerState('sensor.cw_picker_temperature', '21', {
-    friendly_name: 'Temperature',
+    friendly_name: t('complications.temperature'),
     device_class: 'temperature',
     unit_of_measurement: '°C',
   }),
   pickerState('sensor.cw_picker_humidity', '58', {
-    friendly_name: 'Humidity',
+    friendly_name: t('complications.humidity'),
     device_class: 'humidity',
     unit_of_measurement: '%',
   }),
   pickerState('sensor.cw_picker_battery', '82', {
-    friendly_name: 'Phone',
+    friendly_name: t('common.samplePhone'),
     device_class: 'battery',
     unit_of_measurement: '%',
   }),
@@ -90,14 +91,14 @@ class CupertinoComplicationsCard extends CupertinoComplicationCardBase<Complicat
             ${rows.slice(0, grid.visible).map(row => this.renderComplicationCell(row, grid.diameter, hass))}
           </div>
         `
-      : html`<div class="empty">Choose entities to display.</div>`
+      : html`<div class="empty">${t('complications.empty')}</div>`
     return html`<ha-card><div class="widget">${content}</div></ha-card>`
   }
 }
 
 registerCard(COMPLICATIONS_CARD_TAG, CupertinoComplicationsCard, {
-  name: 'Cupertino Complications',
-  description: 'Read multiple entities in rings, dials and discs.',
+  name: t('complications.name'),
+  description: t('complications.description'),
 })
 
 // Saved dashboards can still load the original tag. Only the new tag appears in the picker.

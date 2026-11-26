@@ -35,7 +35,8 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "lit": "^3.3.3"
+    "lit": "^3.3.3",
+    "rosetta": "^1.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

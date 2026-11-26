@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { LitElement, type CSSResultGroup, type PropertyValues } from 'lit'
 import { property, state } from 'lit/decorators.js'
 
@@ -161,7 +162,7 @@ export abstract class CupertinoCard<C extends CupertinoCardConfig = CupertinoCar
 
   public setConfig(config: C): void {
     if (!config) {
-      throw new Error('Invalid configuration')
+      throw new Error(t('common.invalidConfig'))
     }
     this._config = config
     this._applyScale()

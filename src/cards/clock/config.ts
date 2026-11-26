@@ -1,4 +1,5 @@
 /** Clock configuration uses the same entity rows as the standalone complications card. */
+import { t } from '../../core/i18n'
 import type { ComplicationsCardConfig } from '../complications/complication-card-base'
 import { finiteNumber } from '../complications/model'
 
@@ -21,12 +22,12 @@ export const clockTypography = (config?: ClockCardConfig) => ({
 })
 
 export const CLOCK_FONTS = [
-  { value: 'system', label: 'System default', family: 'var(--cw-font)' },
-  { value: 'rounded', label: 'Rounded', family: 'ui-rounded, system-ui, sans-serif' },
+  { value: 'system', label: t('clock.systemFont'), family: 'var(--cw-font)' },
+  { value: 'rounded', label: t('clock.rounded'), family: 'ui-rounded, system-ui, sans-serif' },
   { value: 'Avenir Next', label: 'Avenir Next', family: '"Avenir Next", var(--cw-font)' },
   { value: 'DIN Alternate', label: 'DIN Alternate', family: '"DIN Alternate", var(--cw-font)' },
   { value: 'Futura', label: 'Futura', family: 'Futura, var(--cw-font)' },
-  { value: 'monospace', label: 'Monospace', family: 'ui-monospace, monospace' },
+  { value: 'monospace', label: t('clock.monospace'), family: 'ui-monospace, monospace' },
 ] as const
 
 export const clockFontFamily = (font: unknown): string => {
