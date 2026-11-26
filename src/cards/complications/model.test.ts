@@ -271,12 +271,52 @@ describe('complication profiles', () => {
       reading: '07:30',
       glyph: 'mdi:weather-sunset-up',
     })
-    expect(readComplication(hass, { entity, shape: 'ring' })).toMatchObject({
+    expect(readComplication(hass, { entity, shape: 'ring', sun_event: 'sunset' })).toMatchObject({
       reading: '16:00',
       value: undefined,
       scale: undefined,
     })
   })
+
+  it.each([
+    ['sunrise', 'next_rising', 'above_horizon', '07:30', 'mdi:weather-sunset-up'],
+    ['sunset', 'next_setting', 'below_horizon', '16:00', 'mdi:weather-sunset-down'],
+  ] as const)(
+    'holds %s through the timestamp rollover for fifteen minutes',
+    (event, attribute, horizon, reading, glyph) => {
+      const entity = 'sun.sun'
+      const rising = '2026-11-25T06:30:00Z'
+      const setting = '2026-11-25T15:00:00Z'
+      const instant = event === 'sunrise' ? rising : setting
+      const at = Date.parse(instant)
+      const before = {
+        ...sensor('sun', {
+          next_rising: event === 'sunrise' ? rising : '2026-11-26T06:31:00Z',
+          next_setting: setting,
+          icon: 'mdi:white-balance-sunny',
+        }),
+        entity_id: entity,
+      }
+      const after = {
+        ...before,
+        state: horizon,
+        last_changed: new Date(at + 30_000).toISOString(),
+        attributes: { ...before.attributes, [attribute]: new Date(at + 86_400_000).toISOString() },
+      }
+      const read = (state: HassEntity, now: number, cached?: HassEntity) =>
+        readComplication(dashboard(state), { entity }, undefined, undefined, now, cached)
+      expect(read(before, at - 1)).toMatchObject({ reading, glyph })
+      expect(read(after, at + 14 * 60_000, before)).toMatchObject({ reading, glyph })
+      expect(read({ ...after, last_changed: instant }, at + 60_000)).toMatchObject({
+        reading,
+        glyph,
+      })
+      expect(read(after, at + 15 * 60_000, before)).toMatchObject({
+        reading: event === 'sunrise' ? '16:00' : '07:31',
+        glyph: event === 'sunrise' ? 'mdi:weather-sunset-down' : 'mdi:weather-sunset-up',
+      })
+    },
+  )
 
   it('keeps generic readings neutral and uses a dial only with a valid range', () => {
     const hass = dashboard(sensor('42', { unit_of_measurement: 'W' }))

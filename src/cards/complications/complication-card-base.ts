@@ -8,6 +8,7 @@ import { complicationStyles, renderComplication } from '../../ui/complication/co
 import { ComplicationForecasts, todaysRange } from './forecast'
 import { complicationReadingScale } from './layout'
 import {
+  automaticSun,
   available,
   formatComplicationNumber,
   complicationRows,
@@ -70,14 +71,19 @@ export abstract class CupertinoComplicationCardBase<
 
   private readonly _forecast = new ComplicationForecasts(() => this.requestUpdate())
   private readonly _lastStates = new Map<string, HassEntity>()
+  private readonly _beforeSolarRollover = new Map<string, HassEntity>()
   private _clock?: ReturnType<typeof setInterval>
 
   public override connectedCallback(): void {
     super.connectedCallback()
     this.requestUpdate()
-    // A fresh render also reselects the daily range if midnight passed between pushes.
+    // The forecast day and the solar grace period can end between entity updates.
     this._clock = setInterval(() => {
-      if (this.complicationRows().some(row => weatherMetric(row) === 'temperature'))
+      if (
+        this.complicationRows().some(
+          row => automaticSun(row) || weatherMetric(row) === 'temperature',
+        )
+      )
         this.requestUpdate()
     }, 15_000)
   }
@@ -112,12 +118,27 @@ export abstract class CupertinoComplicationCardBase<
     const candidates = new Set(
       rows.filter(row => weatherMetric(row) === 'temperature').map(row => row.entity),
     )
+    const sun = new Set(rows.filter(automaticSun).map(row => row.entity))
     const weather = new Set<string>()
+    for (const id of this._beforeSolarRollover.keys()) {
+      if (!sun.has(id) || !this.hass?.states[id]) this._beforeSolarRollover.delete(id)
+    }
     for (const id of this._lastStates.keys()) {
       if (!ids.has(id)) this._lastStates.delete(id)
     }
     for (const id of ids) {
       const state = this.hass?.states[id]
+      const previous = this._lastStates.get(id)
+      if (
+        sun.has(id) &&
+        state &&
+        available(state) &&
+        previous &&
+        (state.attributes.next_rising !== previous.attributes.next_rising ||
+          state.attributes.next_setting !== previous.attributes.next_setting)
+      ) {
+        this._beforeSolarRollover.set(id, previous)
+      }
       if (state && (available(state) || !this._lastStates.has(id))) this._lastStates.set(id, state)
       if (
         candidates.has(id) &&
@@ -137,8 +158,16 @@ export abstract class CupertinoComplicationCardBase<
     hass = this.hass,
   ): TemplateResult {
     const zone = this.hass?.config.time_zone ?? 'UTC'
-    const forecast = todaysRange(this._forecast.read(row.entity), Date.now(), zone)
-    const complication = readComplication(hass, row, forecast, this._lastStates.get(row.entity))
+    const now = Date.now()
+    const forecast = todaysRange(this._forecast.read(row.entity), now, zone)
+    const complication = readComplication(
+      hass,
+      row,
+      forecast,
+      this._lastStates.get(row.entity),
+      now,
+      this._beforeSolarRollover.get(row.entity),
+    )
     const temperature = complication.key === 'temperature'
     const sensorTemperature =
       temperature && !complication.metric && complication.reading.includes('°')
@@ -176,7 +205,9 @@ export abstract class CupertinoComplicationCardBase<
     const automaticIcon = !row.icon && (!row.icon_position || row.icon_position === 'auto')
     const weatherDial = complication.form === 'dial' && complication.metric === 'temperature'
     const glyph =
-      (diameter < 54 && reading) || (weatherDial && automaticIcon) ? undefined : complication.glyph
+      (diameter < 54 && reading && !automaticSun(row)) || (weatherDial && automaticIcon)
+        ? undefined
+        : complication.glyph
     const glyphPosition =
       row.icon_position === 'top' ||
       (row.icon_position !== 'bottom' && complication.form === 'disc')

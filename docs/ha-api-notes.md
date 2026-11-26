@@ -1521,8 +1521,15 @@ and [weather entity implementation][complication-weather].
 
 The Sun integration exposes the next rising and setting times as UTC timestamps. The
 card accepts `next_rising` and `next_setting` from `sun.sun`, or the state of a timestamp
-sensor, and applies the viewer's time and time-zone preferences. [Sun integration][complication-sun].
+sensor, and applies the viewer's time and time-zone preferences. Auto on a Sun entity
+shows the next horizon event and keeps that event and its icon for 15 minutes after it
+passes. Core advances the corresponding timestamp when the event occurs, so an open
+card remembers the previous schedule. A card opened during the grace period uses the
+horizon state's `last_changed` as a fallback, which can differ from the scheduled
+event time. Explicit Sunrise and Sunset settings keep showing the next occurrence of
+the chosen event. [Sun integration][complication-sun] and [Sun entity implementation][complication-sun-entity].
 
 [complication-ws]: https://github.com/home-assistant/core/blob/2026.7.4/homeassistant/components/weather/websocket_api.py
 [complication-weather]: https://github.com/home-assistant/core/blob/2026.7.4/homeassistant/components/weather/__init__.py
 [complication-sun]: https://www.home-assistant.io/integrations/sun/#sensors
+[complication-sun-entity]: https://github.com/home-assistant/core/blob/dev/homeassistant/components/sun/entity.py

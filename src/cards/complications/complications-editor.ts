@@ -66,10 +66,12 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
             value !== '' &&
             value !== undefined &&
             value !== null &&
-            !(value === 'auto' && ['profile', 'shape', 'icon_position', 'mark'].includes(key)) &&
+            !(
+              value === 'auto' &&
+              ['profile', 'shape', 'icon_position', 'mark', 'sun_event'].includes(key)
+            ) &&
             !(key === 'weather_metric' && value === 'temperature') &&
-            !(key === 'color_mode' && value === this.defaultAppearance) &&
-            !(key === 'sun_event' && value === 'sunset'),
+            !(key === 'color_mode' && value === this.defaultAppearance),
         ),
       ) as unknown as ComplicationRow
       return Object.keys(config).length === 1 ? config.entity : config
@@ -149,7 +151,7 @@ class CupertinoComplicationRows extends CupertinoBatteryDevices {
           ]
         : []),
       ...(complication.key === 'sun' && row.entity.startsWith('sun.')
-        ? [select('sun_event', { sunset: 'Sunset', sunrise: 'Sunrise' })]
+        ? [select('sun_event', { auto: 'Auto', sunset: 'Sunset', sunrise: 'Sunrise' })]
         : []),
     ]
   }
@@ -181,7 +183,7 @@ export class CupertinoComplicationsEditor<
             color_mode: this.complicationAppearance,
             icon_position: 'auto',
             mark: 'auto',
-            sun_event: 'sunset',
+            ...(row.entity.startsWith('sun.') ? { sun_event: 'auto' } : {}),
             ...row,
           }))}
         @devices-changed=${this._rowsChanged}

@@ -115,7 +115,7 @@ export interface ComplicationRow extends BatteryDeviceConfig {
   min?: number
   max?: number
   show_percentage?: boolean
-  sun_event?: 'sunrise' | 'sunset'
+  sun_event?: 'auto' | 'sunrise' | 'sunset'
 }
 
 export const complicationRows = (value: unknown): ComplicationRow[] =>
@@ -162,6 +162,51 @@ export const formatComplicationNumber = (
     minimumFractionDigits,
     useGrouping: false,
   }).format(maximumFractionDigits === 0 && Math.abs(value) < 0.5 ? 0 : value)
+
+export const automaticSun = (row: ComplicationRow): boolean =>
+  row.entity.startsWith('sun.') && (!row.sun_event || row.sun_event === 'auto')
+
+const SUN_GRACE = 15 * 60_000
+const SUN_EVENTS = { sunrise: 'next_rising', sunset: 'next_setting' } as const
+
+const solarInstant = (timestamp: unknown): number =>
+  typeof timestamp === 'string' ? Date.parse(timestamp) : NaN
+
+const automaticSolarEvent = (
+  state: HassEntity,
+  beforeRollover: HassEntity | undefined,
+  now: number,
+) => {
+  const events = (['sunrise', 'sunset'] as const).map(event => ({
+    event,
+    instant: solarInstant(state.attributes[SUN_EVENTS[event]]),
+  }))
+  const recent = [
+    ...events,
+    ...events.map(({ event }) => ({
+      event,
+      instant: solarInstant(beforeRollover?.attributes[SUN_EVENTS[event]]),
+    })),
+  ]
+    .filter(({ instant }) => instant <= now && now - instant < SUN_GRACE)
+    .sort((a, b) => b.instant - a.instant)[0]
+  if (recent) return recent
+
+  // A newly opened dashboard only has the next event times and the horizon state change.
+  const changed = solarInstant(state.last_changed)
+  const event: keyof typeof SUN_EVENTS = state.state === 'above_horizon' ? 'sunrise' : 'sunset'
+  const observed = solarInstant(beforeRollover?.attributes[SUN_EVENTS[event]])
+  if (
+    (state.state === 'above_horizon' || state.state === 'below_horizon') &&
+    changed <= now &&
+    now - changed < SUN_GRACE &&
+    !(observed <= now && Math.abs(observed - changed) < SUN_GRACE)
+  ) {
+    return { event, instant: changed }
+  }
+
+  return events.filter(({ instant }) => instant > now).sort((a, b) => a.instant - b.instant)[0]
+}
 
 const solarTime = (instant: number, hass?: HomeAssistant) => {
   const clock = timePreferences(hass?.locale)
@@ -221,6 +266,8 @@ export const readComplication = (
   row: ComplicationRow,
   forecast?: TemperatureRange,
   previous?: HassEntity,
+  now = Date.now(),
+  beforeSolarRollover?: HassEntity,
 ) => {
   const state = hass?.states[row.entity]
   const source = available(state) ? state : (previous ?? state)
@@ -260,11 +307,17 @@ export const readComplication = (
   const sun = key === 'sun'
   const sunEntity = row.entity.startsWith('sun.')
   const translation = hass?.entities?.[row.entity]?.translation_key
-  const event = row.sun_event ?? (translation === 'next_rising' ? 'sunrise' : 'sunset')
-  const timestamp = sunEntity
-    ? attrs?.[event === 'sunrise' ? 'next_rising' : 'next_setting']
-    : state?.state
-  const instant = sun && typeof timestamp === 'string' ? Date.parse(timestamp) : NaN
+  const automatic = sun && automaticSun(row)
+  const scheduled =
+    automatic && available(state) && state
+      ? automaticSolarEvent(state, beforeSolarRollover, now)
+      : undefined
+  const fixed =
+    row.sun_event === 'sunrise' || row.sun_event === 'sunset' ? row.sun_event : undefined
+  const event = scheduled?.event ?? fixed ?? (translation === 'next_rising' ? 'sunrise' : 'sunset')
+  const instant = automatic
+    ? scheduled?.instant
+    : solarInstant(sunEntity ? attrs?.[SUN_EVENTS[event]] : state?.state)
   const numeric = wind
     ? attrs?.wind_speed
     : metric
@@ -277,7 +330,9 @@ export const readComplication = (
   const heading = wind && available(state) ? windDirection(attrs?.wind_bearing) : undefined
   const language = hass?.locale?.language ?? hass?.language
   const solar =
-    sun && available(state) && Number.isFinite(instant) ? solarTime(instant, hass) : undefined
+    sun && available(state) && instant !== undefined && Number.isFinite(instant)
+      ? solarTime(instant, hass)
+      : undefined
   const ok = solar !== undefined || value !== undefined
   const sensorCelsius = key === 'temperature' && !metric && !fahrenheit
   const digits = sensorCelsius ? 1 : key === 'temperature' || key === 'uv_index' || wind ? 0 : 1
@@ -287,7 +342,7 @@ export const readComplication = (
       ? '–'
       : `${formatComplicationNumber(value, language, digits, sensorCelsius ? 1 : 0)}${unit === '%' || unit.startsWith('°') ? unit : ''}`)
   const solarEvent =
-    sunEntity || row.sun_event || translation === 'next_rising' || translation === 'next_setting'
+    sunEntity || fixed || translation === 'next_rising' || translation === 'next_setting'
   const solarIcon = solarEvent
     ? event === 'sunrise'
       ? 'mdi:weather-sunset-up'
@@ -297,6 +352,7 @@ export const readComplication = (
     row.icon ||
     battery?.icon ||
     profile.icon ||
+    (sun && solarEvent ? solarIcon : undefined) ||
     (wind ? undefined : attrs?.icon) ||
     (sun ? solarIcon : undefined)
   const palette = profile.palette
