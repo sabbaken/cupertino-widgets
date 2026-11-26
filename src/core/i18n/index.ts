@@ -1,14 +1,20 @@
 /**
- * Both dictionaries ship in the card resource so the picker can register translated
+ * The dictionaries ship in the card resource so the picker can register translated
  * names synchronously. Each lookup can fall back to English if a translation is missing.
  */
 import rosetta from 'rosetta'
 
+import de from './de.json'
 import en from './en.json'
+import es from './es.json'
+import fr from './fr.json'
+import pt from './pt.json'
 import ru from './ru.json'
 
-const dictionaries = { en, ru }
+const dictionaries = { de, en, es, fr, pt, ru } satisfies Record<string, typeof en>
 type Language = keyof typeof dictionaries
+const isLanguage = (language: string): language is Language => Object.hasOwn(dictionaries, language)
+
 type MessageKey<T> = {
   [K in keyof T & string]: T[K] extends string ? K : `${K}.${MessageKey<T[K]>}`
 }[keyof T & string]
@@ -18,7 +24,7 @@ export const cwPreferredLanguage = (
 ): { language: Language; locale: string } => {
   for (const locale of preferences) {
     const language = locale.split('-')[0].toLowerCase()
-    if (language === 'ru' || language === 'en') return { language, locale }
+    if (isLanguage(language)) return { language, locale }
   }
   return { language: 'en', locale: 'en-US' }
 }
