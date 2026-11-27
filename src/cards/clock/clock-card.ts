@@ -99,6 +99,13 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
         color: var(--cw-label);
         gap: calc(8px * var(--cw-scale));
       }
+      button.context {
+        appearance: none;
+        background: none;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+      }
       .weather {
         gap: calc(4px * var(--cw-scale));
         white-space: nowrap;
@@ -187,6 +194,7 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
     const locale = cwBrowserLocale ?? profileLocale
     const timeZone = displayTimeZone(this.hass)
     const weather = this._weather()
+    const weatherEntity = this._config?.weather_entity
     const date =
       this._config?.show_date === false
         ? nothing
@@ -209,7 +217,9 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
       .join('')
       .trim()
     const rows = this.complicationRows()
-    const showContext = date !== nothing || weather !== nothing
+    const context = html`${
+      date === nothing ? nothing : html`<span class="cw-truncate">${date}</span>`
+    }${weather}`
     const showBackground = this._config?.show_background === true
     const border = showBackground ? 2 : 0
     const budgetAt = (scale: number) => {
@@ -251,11 +261,24 @@ class CupertinoClockCard extends CupertinoComplicationCardBase<ClockCardConfig> 
         })}
       >
         ${
-          showContext
-            ? html`<div class="context">
-                ${date === nothing ? nothing : html`<span class="cw-truncate">${date}</span>`}${weather}
-              </div>`
-            : nothing
+          weather !== nothing && weatherEntity
+            ? html`<button
+                class="context"
+                type="button"
+                @click=${() =>
+                  this.dispatchEvent(
+                    new CustomEvent('hass-more-info', {
+                      detail: { entityId: weatherEntity },
+                      bubbles: true,
+                      composed: true,
+                    }),
+                  )}
+              >
+                ${context}
+              </button>`
+            : date !== nothing
+              ? html`<div class="context">${context}</div>`
+              : nothing
         }
         <time class="time" datetime=${now.toISOString()}>${time}</time>
         ${

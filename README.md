@@ -21,8 +21,10 @@ dashboard’s **Layout** tab and the contents adapt to the space.
 
 Try the widgets with sample data in the demo and copy the configuration for your dashboard.
 
-[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sabbaken)
-[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sabbaken)
+I recently lost my job. If you enjoy Cupertino Widgets and would like to support my work on
+the project, a one-time donation of any amount you choose would mean a lot to me.
+
+[![Donate via Stripe](https://img.shields.io/badge/Donate%20via%20Stripe-635BFF?style=for-the-badge&logo=stripe&logoColor=white)](https://buy.stripe.com/5kQ8wP28L1APa8q97CdfG00)
 
 [![CI status](https://github.com/sabbaken/cupertino-widgets/actions/workflows/ci.yml/badge.svg)](https://github.com/sabbaken/cupertino-widgets/actions/workflows/ci.yml)
 [![Release status](https://github.com/sabbaken/cupertino-widgets/actions/workflows/release.yml/badge.svg)](https://github.com/sabbaken/cupertino-widgets/actions/workflows/release.yml)
